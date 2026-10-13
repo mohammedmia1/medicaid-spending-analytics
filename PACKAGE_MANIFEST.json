@@ -1,7 +1,7 @@
 {
   ".github/workflows/validate.yml": "1214f365aef91e5074c5ff45a006ba06a2161220da9ad01bdd5ea1a69b0600f1",
   ".gitignore": "060914a320d43eb34daf9679d3e2dd61b3e409eb12a6b885d45a37897c384bc6",
-  "README.md": "b55c6b0c6c70c0d1ab5cb1c2d71110abfc81cb3e9443fe6051aa13636144c3ab",
+  "README.md": "44fd9a60af70bca5b103e66cbbe18a1a37a3cf918ffe6c04f3bea6c6a62ca309",
   "archive/CIS 450 Final Paper (1).pdf": "9bcbe4bfaf2324fcdd59f2a2e612a62fb899077ad46b181ea1cdb6bbab9fb96c",
   "archive/Group Project - Final Paper.pdf": "de5344afa2fd53344da9bdcf5a7b3750870b3775f0187b22c817db145da736ca",
   "archive/Q3_Analysis (1).ipynb": "55bf71c88f7465e0392026c280724156e709013e6a91a18a7843854234dd8b1c",
@@ -23,7 +23,7 @@
   "notebooks/Medicaid_Spending_Analysis.ipynb": "9b3517de7892868d6f37687d8ae9c410197d371d85d503f16d7ad5bb06a9ba7b",
   "pyproject.toml": "d54f7c916ff011d5eecfad7e1944de2bd93b965be966bd437211362f6748428b",
   "reports/EXECUTIVE_BRIEF.pdf": "0efcd13d10b412499e6dc5f7f7ec229d3ece06146b8f338db726ebff671cf167",
-  "reports/VALIDATION_RECEIPT.json": "b8dd289be627e2d48c00005a00ff9bb31dbd9033ab29ea04a233a715cb6baa0b",
+  "reports/VALIDATION_RECEIPT.json": "25b7948287a0851075980d4a04d46e4dc5775f8080baa58de1acbc992f794976",
   "reports/audit.json": "5409718546d277f96c9bd817cd502a7dcf496fb3471e785e059fc236d6ef424b",
   "reports/figures/formulation_gaps.png": "6e94c90297aae30d4f5022bc19bf3883dd4e2d67c16f59785187fd9c3bc7e916",
   "reports/figures/jurisdiction_coverage.png": "cc78066fafd2aae30837bffd4be1e2df5a809a75e69bc5b878f37d9442d9afda",

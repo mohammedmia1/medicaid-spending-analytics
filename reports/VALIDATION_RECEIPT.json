@@ -10,6 +10,23 @@
   "input_hashes_verified": true,
   "markdown_links_verified": true,
   "figures_and_pdf_visually_reviewed": true,
-  "github_actions": "configured; remote run pending publication",
-  "github_publication": "Publication in progress; remote validation pending"
+  "github_actions": {
+    "status": "passed",
+    "validated_commit": "88c78a6bd62c820cf8916a0194a427e2667d3dc6",
+    "run_url": "https://github.com/mohammedmia1/medicaid-spending-analytics/actions/runs/38355314667",
+    "checks": [
+      "dependency installation",
+      "12 unit tests",
+      "full analytics pipeline",
+      "input hashes and output reconciliation"
+    ]
+  },
+  "github_publication": "Published to https://github.com/mohammedmia1/medicaid-spending-analytics",
+  "remote_file_integrity": "All 57 committed Git blob hashes matched local bytes",
+  "presentation_checks": [
+    "README documentation and figure targets exist in remote tree",
+    "Original source archive preserved",
+    "PDF and figure layouts visually checked locally",
+    "Notebook has seven executed error-free cells"
+  ]
 }

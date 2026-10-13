@@ -1,5 +1,7 @@
 # Medicaid Prescription Spending | Healthcare Data Analytics
 
+[![Validate analytics](https://github.com/mohammedmia1/medicaid-spending-analytics/actions/workflows/validate.yml/badge.svg?branch=main)](https://github.com/mohammedmia1/medicaid-spending-analytics/actions/workflows/validate.yml)
+
 **An audit-first analysis of an archived 2024 utilization extract covering 11 states and Washington, DC.**
 
 I refined a university group project into a reproducible Python and SQL analysis of spending concentration, source-data coverage, and product reimbursement differences. The first finding changed the scope of the project: a workbook described as national retained only 12 jurisdictions and reached Excel's row limit. All results below refer to that retained extract.
