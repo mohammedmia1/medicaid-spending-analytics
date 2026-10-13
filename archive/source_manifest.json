@@ -1,0 +1,44 @@
+[
+  {
+    "filename": "(FINAL) FINAL CIS450 MEDICAID (1).xlsx",
+    "size_bytes": 348125733,
+    "sha256": "02f58594509c3ccd3f366fb712dca38fe1f5a626b25073db78ba63c22fa56aee",
+    "preservation": "Original supplied workbook left unchanged; exact CSV worksheet extracts included under data/raw."
+  },
+  {
+    "filename": "CIS 450 Final Paper (1).pdf",
+    "size_bytes": 6740594,
+    "sha256": "9bcbe4bfaf2324fcdd59f2a2e612a62fb899077ad46b181ea1cdb6bbab9fb96c",
+    "archived_path": "archive/CIS 450 Final Paper (1).pdf"
+  },
+  {
+    "filename": "CIS 450 Q1-Q2  (1).xlsx",
+    "size_bytes": 268768899,
+    "sha256": "f385cb5cc9adb11d3e4f14af6b22ed0fa8e567bbb6bace72f44105098c246cd2",
+    "preservation": "Original supplied workbook left unchanged; exact CSV worksheet extracts included under data/raw."
+  },
+  {
+    "filename": "Group Project - Final Paper.pdf",
+    "size_bytes": 78117,
+    "sha256": "de5344afa2fd53344da9bdcf5a7b3750870b3775f0187b22c817db145da736ca",
+    "archived_path": "archive/Group Project - Final Paper.pdf"
+  },
+  {
+    "filename": "Q3_Analysis (1).ipynb",
+    "size_bytes": 522291,
+    "sha256": "55bf71c88f7465e0392026c280724156e709013e6a91a18a7843854234dd8b1c",
+    "archived_path": "archive/Q3_Analysis (1).ipynb"
+  },
+  {
+    "filename": "Q4_5_Analysis (1).ipynb",
+    "size_bytes": 149832,
+    "sha256": "6cdfc071c76b468026ed6b18e2e81c8692a71cca9a2001634416698ef07d491b",
+    "archived_path": "archive/Q4_5_Analysis (1).ipynb"
+  },
+  {
+    "filename": "medicaid_data_merge (1).ipynb",
+    "size_bytes": 4517,
+    "sha256": "271d3123a68475ffee6f0021897638f12166bb268d04fb61302929ee58f08983",
+    "archived_path": "archive/medicaid_data_merge (1).ipynb"
+  }
+]

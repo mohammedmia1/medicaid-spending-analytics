@@ -1,0 +1,15 @@
+{
+  "local_validation": "passed",
+  "unit_tests": 12,
+  "executed_notebook_code_cells": 7,
+  "brief_pages": 2,
+  "source_files_unchanged": 7,
+  "source_fact_rows_reconcile": true,
+  "sql_spending_totals_reconcile": true,
+  "legacy_q3_reproduces_to_cent": true,
+  "input_hashes_verified": true,
+  "markdown_links_verified": true,
+  "figures_and_pdf_visually_reviewed": true,
+  "github_actions": "configured; remote run pending publication",
+  "github_publication": "Publication in progress; remote validation pending"
+}
