@@ -87,7 +87,9 @@ My decision sequence follows the analytical questions: prioritize high-dollar pr
 
 The pipeline generates the SQL tables, figures, and `reports/analysis_summary.json`. Source checksums identify the included CSV files. Tests check meaningful failure cases, including duplicate joins, mismatched formulations, future marketing dates, suppressed values, and incorrect price weighting. The verification command checks source integrity, spending totals, jurisdiction coverage, and price-comparison bounds.
 
-The notebook saves executed outputs so the reader can follow each question through the calculation and interpretation.
+The notebook starts independently from the source CSVs and shows the preparation, join, inline SQL, EPC extraction, matching, weighted prices, and chart code directly. It does not import analytical functions from the project package or load prebuilt charts. SQL runs against a temporary in-memory SQLite database built from the notebook's prepared records; closing the connection releases it.
+
+I save the notebook with executed table and chart outputs. Its final checks compare every row of all nine result tables with the published outputs, retaining text identifiers and allowing only small floating-point differences. Input checksums, eligible record counts, reconciled spending totals, and matching bounds are also checked. GitHub Actions executes the notebook after generating fresh pipeline outputs, so the readable walkthrough and batch implementation must continue to agree. `python scripts/build_notebook.py --check` executes these checks without rewriting the saved notebook.
 
 ## References
 

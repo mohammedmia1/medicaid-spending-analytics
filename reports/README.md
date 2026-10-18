@@ -30,4 +30,4 @@ The [illustrative scenarios](tables/illustrative_scenarios.csv) multiply the pos
 - [Analysis summary](analysis_summary.json): source checksums, row counts, coverage, and headline totals.
 - [Conflicting directory listings](tables/directory_conflicts.csv): product keys I left without attached descriptors because their analytical descriptions conflict.
 
-The [methodology](../docs/METHODOLOGY.md) defines the calculations. The [executed notebook](../notebooks/Medicaid_Spending_Analysis.ipynb) shows how I reach and interpret the results.
+The [methodology](../docs/METHODOLOGY.md) defines the calculations. The [executed notebook](../notebooks/Medicaid_Spending_Analysis.ipynb) shows the source loading, preparation, inline SQL, price calculations, and chart code directly. It calculates from source records, then compares every row of the nine result tables against these published outputs.

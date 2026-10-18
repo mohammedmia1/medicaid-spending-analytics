@@ -135,7 +135,9 @@ python -m medicaid_analytics.verify
 python scripts/build_notebook.py
 ```
 
-The pipeline produces a local SQLite database, [result tables](reports/tables/), seven figures, and an [analysis summary](reports/analysis_summary.json). Allow about 500 MB of free disk space and at least 2 GB of available memory. To regenerate the PDF separately, install `reportlab` and run `python scripts/build_brief.py`.
+The pipeline produces a local SQLite database, [result tables](reports/tables/), seven figures, and an [analysis summary](reports/analysis_summary.json). Allow about 750 MB of free disk space and at least 2 GB of available memory when running both the pipeline and notebook. To regenerate the PDF separately, install `reportlab` and run `python scripts/build_brief.py`.
+
+The notebook starts from the included source CSVs and shows preparation, inline SQL, matching, weighted prices, and chart code in sequence. It can run without first running the pipeline. Its final cells compare all nine result tables with the published outputs. GitHub Actions repeats this comparison against freshly generated pipeline results. The batch pipeline remains available for automated processing; the notebook provides the same analysis as a readable walkthrough.
 
 | Explore | Contents |
 |---|---|
