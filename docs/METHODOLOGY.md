@@ -2,7 +2,7 @@
 
 ## 1. Define the question and the dataset
 
-I wanted to identify spending concentration and product price differences in 2024 Medicaid prescription data. The utilization extract contains 1,048,575 records for AK, AL, AR, AZ, CA, CO, CT, DC, DE, FL, GA, and HI.
+I organized the project around five questions: which drugs account for spending, which pharmacologic categories are prominent, where observed price differences merit a savings review, which recorded formulations have potentially comparable alternatives, and how geographic and reporting context affect the interpretation. I use descriptive aggregation and matched price comparisons to answer these questions. The utilization extract contains 1,048,575 records for AK, AL, AR, AZ, CA, CO, CT, DC, DE, FL, GA, and HI.
 
 One observation represents a utilization type, jurisdiction, 11-digit package NDC, year, and quarter. Keeping that grain avoids treating managed-care and fee-for-service reporting as duplicate observations. The extract reaches the worksheet row limit, so I do not assume complete coverage within each jurisdiction or extend the results to the whole country.
 
@@ -35,7 +35,9 @@ I load the enriched utilization table into SQLite and use four queries:
 
 All four spending outputs reconcile to the same denominator. Product NDCs combine package sizes but do not combine every strength of a brand. Jurisdiction totals are absolute amounts; they are not adjusted for enrollment, patient mix, or drug mix. Quarterly differences describe this dataset rather than establish policy effects.
 
-The optional EPC table uses the directory's recorded established-pharmacologic-class tags. A product can have several tags. I count a repeated tag once per record, but amounts across different tags overlap and must not be added as if the classes were mutually exclusive.
+For Q2, I use the directory's recorded established-pharmacologic-class (EPC) tags. I extract text marked `[EPC]`, deduplicate each record's tags, and sum that record's reimbursement once for each distinct tag. A product can have several tags, so amounts across tags overlap and must not be added as if the classes were mutually exclusive. I keep records with no EPC tag or unmatched metadata in an explicit category; this group accounts for $5.19B. The GLP-1 Receptor Agonist tag is associated with $2.94B. These figures are category context, not an additive therapeutic-class market share.
+
+This treatment lets me describe pharmacologic categories without assigning new clinical labels. It also keeps the all-spending denominator intact rather than dropping products with incomplete classification.
 
 ## 5. Compare reimbursement per unit
 
@@ -53,13 +55,33 @@ positive gross gap = max(signed gross gap, 0)
 
 Using ratios of sums gives utilization its appropriate weight. A simple average of row-level prices would give small and large observations equal influence.
 
+### Why I use weighted prices for Q3
+
+The estimand is a gross reimbursement difference at observed NDA utilization. I therefore want each unit to contribute equally to the price calculation within its matched group. Algebraically, weighting each row's reimbursement-per-unit value by its units gives total reimbursement divided by total units. This also makes the NDA side reconcile to its observed reimbursement before applying the alternative price.
+
+A median answers a different question: what is the middle row-level price? It can be useful for sensitivity analysis, but rows with different utilization receive equal rank in that summary. With only two observations, the median is their midpoint. It does not automatically provide a better estimate of aggregate dollars. I use weighted prices as the published comparison; the repository does not contain a separate median-based sensitivity result.
+
+For an arithmetic example, suppose a matched group has 100 NDA units at $10 per unit and an ANDA weighted price of $2 per unit. The signed gross difference is ($10 - $2) x 100 = $800. This is an illustrative calculation, not a measured project observation or evidence that all 100 units can be substituted.
+
 The analysis identifies **562 formulations across 6,675 matched reporting groups**. Positive gross differences sum to **$516,161,761.37**. Including negative differences gives a signed aggregate of **$506,733,293.57**. The detail retains both measures. The scenario table mechanically scales the positive aggregate to 25%, 50%, 75%, and 100%; these are hypothetical fractions rather than estimated adoption rates.
+
+I calculate the positive amount within each reporting group before summing to formulation level. The signed amount retains comparisons in which ANDA reimbursement per unit is higher. As a result, a formulation's positive total can remain above zero even if its signed aggregate is negative. I report both instead of discarding the higher-ANDA-price observations.
+
+### What Q4 can establish
+
+For Q4, the same matching rules identify recorded formulations that appear on both sides of the comparison. I retain strengths, salts, routes, and release descriptors to avoid treating a shared ingredient name as sufficient evidence of comparability. Cyclosporine ophthalmic emulsion at 0.5 mg/mL, for example, is a specific formulation rather than a recommendation about every cyclosporine product.
+
+The output is a review list. It cannot certify therapeutic equivalence, consistent reimbursement units, availability, or patient suitability. An actionable alternative would need applicable equivalence evidence and product-level review beyond the NDC directory fields.
 
 ## 6. Interpret the results
 
 I use the spending rankings to prioritize high-dollar products for review. The top 50 product NDCs account for **37.1%** of reported reimbursement. California accounts for **56.5%** of this dataset's dollars, but that share alone does not measure efficiency.
 
 The price differences identify investigation candidates. The extract lacks net rebates, verified reimbursement unit types, and therapeutic-equivalence determinations. Identical recorded descriptors do not prove that products can be substituted, and application categories are not definitive brand/generic labels. The comparison is not a clinical recommendation or a forecast of achievable savings.
+
+For Q5, I describe geography at the jurisdiction level because the extract contains only 11 states and DC. Regional totals would inherit that incomplete composition. Q3 has the highest quarterly reimbursement at $7.63B; NDA, BLA, and ANDA listings account for 58.1%, 28.8%, and 10.3% respectively. These are observed distributions. I do not infer causal drivers, price-adjusted efficiency, or statistical significance from them.
+
+My decision sequence follows the analytical questions: prioritize high-dollar products, add pharmacologic context, inspect exact recorded matches, and validate clinical and net economic comparability before considering an intervention.
 
 ## 7. Make the results repeatable
 

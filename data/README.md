@@ -2,6 +2,8 @@
 
 I use a 2024 Medicaid utilization extract and an FDA product directory extract. The files are included as compressed CSVs, so the project runs without credentials or a database server.
 
+I need both sources to move through the project's five questions. Utilization supplies the dollars for product, jurisdiction, and quarterly rankings. The directory supplies pharmacologic tags for class context and the ingredient, strength, form, and route needed for matched price review. I keep missing descriptions visible so that incomplete classification does not remove reported spending.
+
 | File | Contents | Records |
 |---|---|---:|
 | `raw/utilization.csv.gz` | Jurisdiction, reporting period, package NDC, suppression flags, units, prescriptions, and reimbursement | 1,048,575 |
@@ -34,6 +36,7 @@ The product directory includes marketing dates through November 2025; its downlo
 | `ingredient`, `dosage_form`, `route` | Recorded product descriptors | Salt and release distinctions remain intact |
 | `strength`, `strength_unit` | Recorded potency descriptors | Separate from reimbursement unit type |
 | `marketing_start`, `marketing_end` | Recorded listing dates | Used to check quarter overlap |
+| `pharm_classes` | Recorded pharmacologic descriptors | Distinct EPC tags can overlap across products and must not be added as budget shares |
 | `spend_eligible`, `price_eligible` | Calculation eligibility | Spending and price comparisons have distinct requirements |
 | `metadata_matched` | Product information was attached without conflict | Unmatched dollars remain in spending totals |
 
@@ -50,7 +53,7 @@ products = pd.read_csv("data/raw/product_directory.csv.gz", dtype="string")
 
 The CSV files contain stored worksheet values, including blanks and source error markers. The optional extraction command reads cached formula values; it does not recalculate a workbook. `source_row` refers to the worksheet rather than a CMS patient identifier.
 
-The pipeline creates `processed/analytics.sqlite`, which is excluded from Git. Finished tables are in `reports/tables/`, and calculation counts and input checksums are in `reports/analysis_summary.json`.
+The pipeline creates `processed/analytics.sqlite`, which is excluded from Git. I organize finished tables and figures by question in the [results guide](../reports/README.md). Calculation counts and input checksums are in `reports/analysis_summary.json`.
 
 ## Sources
 

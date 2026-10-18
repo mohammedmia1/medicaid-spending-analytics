@@ -8,6 +8,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 
 INK = "#173246"
 TEAL = "#168578"
@@ -96,6 +97,55 @@ def figures(root: Path, results: dict, formulations, summary: dict) -> None:
         fig.tight_layout()
         save(fig, folder, "formulation_gaps.png")
 
+    # EPC tags overlap. A ranked bar chart avoids implying a partition of spending.
+    epc = pd.read_csv(root / "reports/tables/epc_tag_spending.csv")
+    epc = epc.loc[epc["epc_tag"].ne("No recorded EPC tag / unmatched")].head(8).iloc[::-1]
+    fig, ax = plt.subplots(figsize=(12, 7))
+    values = epc["tagged_reimbursement"] / 1e9
+    positions = np.arange(len(epc))
+    ax.barh(positions, values, color=TEAL, height=.62)
+    ax.set_yticks(positions, [textwrap.fill(tag, 42) for tag in epc["epc_tag"]], fontsize=10)
+    ax.set_xlim(0, values.max() * 1.2)
+    for y, value in enumerate(values):
+        ax.text(value + .035, y, f"${value:.2f}B", va="center", fontsize=10)
+    ax.set_xlabel("Reported reimbursement associated with each tag ($ billions)")
+    ax.set_title("The pharmacologic categories behind the dollars", loc="left", fontsize=19, fontweight="bold", pad=42)
+    ax.text(0, 1.03, "Top 8 recorded EPC tags • 2024 • 11 states + Washington, DC", transform=ax.transAxes, color=MUTED, fontsize=10)
+    ax.grid(axis="x", alpha=.15); ax.set_axisbelow(True)
+    fig.tight_layout(rect=[0, .07, 1, 1])
+    fig.text(.02, .025, "Tags overlap: one product can contribute to multiple bars. Do not add these amounts together.", fontsize=10, color=MUTED)
+    save(fig, folder, "pharmacologic_classes.png")
+
+    quarters = results["quarterly_spending"]
+    applications = results["application_spending"]
+    fig, axes = plt.subplots(1, 2, figsize=(13, 6), gridspec_kw={"width_ratios": [1, 1.15]})
+    values = quarters["reimbursement"] / 1e9
+    axes[0].bar(quarters["quarter"], values, color=TEAL, width=.6)
+    for quarter, value in zip(quarters["quarter"], values):
+        axes[0].text(quarter, value + .12, f"${value:.2f}B", ha="center", fontsize=10)
+    axes[0].set_xticks(quarters["quarter"], [f"Q{q}" for q in quarters["quarter"]])
+    axes[0].set_ylim(0, values.max() * 1.22)
+    axes[0].set_ylabel("Reported reimbursement ($ billions)")
+    axes[0].set_title("Reporting quarter", loc="left", fontweight="bold", pad=14)
+    top_categories = applications.head(3)
+    labels = top_categories["application_type"].tolist() + ["Other / unmatched"]
+    shares = (top_categories["spend_share"] * 100).tolist() + [(1 - top_categories["spend_share"].sum()) * 100]
+    y = np.arange(len(labels))
+    axes[1].barh(y, shares, color=[BLUE, BLUE, TEAL, "#a7b6bf"], height=.6)
+    axes[1].set_yticks(y, labels); axes[1].invert_yaxis()
+    axes[1].set_xlim(0, 70)
+    for position, share in enumerate(shares):
+        axes[1].text(share + .8, position, f"{share:.1f}%", va="center", fontsize=10)
+    axes[1].set_xlabel("Share of reported reimbursement (%)")
+    axes[1].set_title("Recorded application category", loc="left", fontweight="bold", pad=14)
+    for ax in axes:
+        ax.grid(axis="y" if ax is axes[0] else "x", alpha=.15); ax.set_axisbelow(True)
+    fig.suptitle("Spending changes with the reporting and product mix", x=.06, ha="left", fontsize=19, fontweight="bold")
+    fig.text(.06, .90, "2024 Medicaid extract • 11 states + Washington, DC • Before manufacturer rebates", fontsize=10, color=MUTED)
+    fig.tight_layout(rect=[.02, .10, 1, .86], w_pad=3)
+    fig.text(.06, .035, "Descriptive patterns, without enrollment or drug-mix adjustment. Application category is not a complete brand/generic label.", fontsize=9, color=MUTED)
+    save(fig, folder, "spending_context.png")
+
     fig = plt.figure(figsize=(13, 7), facecolor="#f4f7f8")
     fig.text(.055, .91, "MEDICAID PRESCRIPTION SPENDING", fontsize=11, fontweight="bold", color=TEAL)
     fig.text(.055, .82, "Where Medicaid prescription spending goes", fontsize=25, fontweight="bold", color=INK)
@@ -110,7 +160,7 @@ def figures(root: Path, results: dict, formulations, summary: dict) -> None:
         fig.text(x, .49, label, fontsize=14, fontweight="bold", color=INK)
         fig.text(x, .44, note, fontsize=11, color=MUTED)
     fig.text(.055, .30, "ANALYSIS AT A GLANCE", fontsize=11, fontweight="bold", color=TEAL)
-    fig.text(.055, .23, "Spending concentration • Jurisdiction comparisons • Product price differences", fontsize=14, color=INK)
+    fig.text(.055, .23, "Product and class spending • Matched price review • Geographic context", fontsize=14, color=INK)
     fig.text(.055, .16, "Top product NDC: Biktarvy • $907.89M in reported reimbursement", fontsize=14, color=INK)
     fig.text(.055, .06, "Scope: 11 states + Washington, DC. Reimbursement is before rebates; suppressed amounts are unavailable.", fontsize=10, color=MUTED)
     save(fig, folder, "portfolio_overview.png")
