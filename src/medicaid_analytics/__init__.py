@@ -1,1 +1,1 @@
-"""Reproducible analysis of an archived 2024 Medicaid utilization extract."""
+"""Medicaid prescription spending analysis with Python and SQL."""

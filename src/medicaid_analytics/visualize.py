@@ -28,7 +28,7 @@ def save(fig, folder: Path, filename: str) -> None:
     plt.close(fig)
 
 
-def figures(root: Path, results: dict, formulations, audit: dict) -> None:
+def figures(root: Path, results: dict, formulations, summary: dict) -> None:
     style()
     folder = root / "reports/figures"
     folder.mkdir(parents=True, exist_ok=True)
@@ -41,7 +41,7 @@ def figures(root: Path, results: dict, formulations, audit: dict) -> None:
     for y, value in enumerate(values): ax.text(value + values.max() * .015, y, f"${value:,.0f}M", va="center", fontsize=10)
     ax.set_xlabel("Reported Medicaid reimbursement before rebates ($ millions)")
     ax.set_title("Where observed prescription spending concentrates", loc="left", pad=38, fontweight="bold", fontsize=19)
-    ax.text(0, 1.02, "Top 10 product NDCs • 2024 archived extract • 11 states + Washington, DC", transform=ax.transAxes, color=MUTED)
+    ax.text(0, 1.02, "Top 10 product NDCs • 2024 Medicaid data • 11 states + Washington, DC", transform=ax.transAxes, color=MUTED)
     ax.grid(axis="x", alpha=.15); ax.set_axisbelow(True)
     fig.text(.01, -.02, "Product-level NDCs combine package sizes, not all strengths of a brand. Suppressed reimbursement is unavailable.", fontsize=9, color=MUTED)
     fig.tight_layout()
@@ -59,7 +59,7 @@ def figures(root: Path, results: dict, formulations, audit: dict) -> None:
         ax.grid(axis="x", alpha=.15); ax.set_axisbelow(True)
     axes[1].set_xlim(0, 100)
     fig.suptitle("Coverage changes how spending comparisons should be read", x=.07, ha="left", fontsize=19, fontweight="bold")
-    fig.text(.07, .91, "2024 archived extract • Absolute amounts are not adjusted for enrollment or drug mix", color=MUTED)
+    fig.text(.07, .91, "2024 Medicaid data • Absolute amounts are not adjusted for enrollment or drug mix", color=MUTED)
     fig.tight_layout(rect=[0, .04, 1, .89])
     fig.text(.07, .015, "Suppressed record share is not the share of dollars missing; suppressed amounts are unknown.", color=MUTED, fontsize=9)
     save(fig, folder, "jurisdiction_coverage.png")
@@ -98,19 +98,19 @@ def figures(root: Path, results: dict, formulations, audit: dict) -> None:
 
     fig = plt.figure(figsize=(13, 7), facecolor="#f4f7f8")
     fig.text(.055, .91, "MEDICAID PRESCRIPTION SPENDING", fontsize=11, fontweight="bold", color=TEAL)
-    fig.text(.055, .82, "A portfolio analysis that starts with the data audit", fontsize=25, fontweight="bold", color=INK)
-    fig.text(.055, .75, "2024 archived extract | Python + SQL + Excel source reconciliation", fontsize=13, color=MUTED)
-    headline = audit["headline"]
+    fig.text(.055, .82, "Where Medicaid prescription spending goes", fontsize=25, fontweight="bold", color=INK)
+    fig.text(.055, .75, "2024 Medicaid data | Python + SQL | Mohammed Mia", fontsize=13, color=MUTED)
+    headline = summary["headline"]
     metrics = [(f"${headline['total_reimbursement']/1e9:.2f}B", "Observed reimbursement", "Before manufacturer rebates"),
-               ("12", "Jurisdictions retained", "11 states + Washington, DC"),
+               ("12", "Jurisdictions analyzed", "11 states + Washington, DC"),
                (f"{headline['top50_product_share']:.1%}", "Top 50 product share", "Of eligible observed reimbursement")]
     for i, (value, label, note) in enumerate(metrics):
         x = .055 + i * .31
         fig.text(x, .56, value, fontsize=39, fontweight="bold", color=INK)
         fig.text(x, .49, label, fontsize=14, fontweight="bold", color=INK)
         fig.text(x, .44, note, fontsize=11, color=MUTED)
-    fig.text(.055, .30, "WHAT THE REFINEMENT CHANGED", fontsize=11, fontweight="bold", color=TEAL)
-    fig.text(.055, .23, "Verified source coverage • Reproduced original results • Preserved join totals", fontsize=14, color=INK)
-    fig.text(.055, .16, "Separated exploratory reimbursement gaps from clinically feasible and net savings", fontsize=14, color=INK)
-    fig.text(.055, .06, "Not a national estimate. Suppressed amounts are unavailable. Original group submission preserved separately.", fontsize=10, color=MUTED)
+    fig.text(.055, .30, "ANALYSIS AT A GLANCE", fontsize=11, fontweight="bold", color=TEAL)
+    fig.text(.055, .23, "Spending concentration • Jurisdiction comparisons • Product price differences", fontsize=14, color=INK)
+    fig.text(.055, .16, "Top product NDC: Biktarvy • $907.89M in reported reimbursement", fontsize=14, color=INK)
+    fig.text(.055, .06, "Scope: 11 states + Washington, DC. Reimbursement is before rebates; suppressed amounts are unavailable.", fontsize=10, color=MUTED)
     save(fig, folder, "portfolio_overview.png")

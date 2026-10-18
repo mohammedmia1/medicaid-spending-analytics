@@ -1,61 +1,75 @@
-# Methodology
+# How I built the analysis
 
-## Scope and observation grain
+## 1. Define the question and the dataset
 
-The utilization fact table represents a reported **utilization type x jurisdiction x 11-digit package NDC x year x quarter**. The year is fixed to 2024. The 12 retained jurisdictions are AK, AL, AR, AZ, CA, CO, CT, DC, DE, FL, GA and HI.
+I wanted to identify spending concentration and product price differences in 2024 Medicaid prescription data. The utilization extract contains 1,048,575 records for AK, AL, AR, AZ, CA, CO, CT, DC, DE, FL, GA, and HI.
 
-The original and cleaned worksheets each contain 1,048,575 observations. Sorting does not change the normalized row fingerprints: keys, suppression indicators, source product names, units, prescriptions and reimbursement reconcile. Original numerical CMS-format NDCs are restored to 11 characters only for this reconciliation; arbitrary unsegmented FDA NDCs are not globally padded.
+One observation represents a utilization type, jurisdiction, 11-digit package NDC, year, and quarter. Keeping that grain avoids treating managed-care and fee-for-service reporting as duplicate observations. The extract reaches the worksheet row limit, so I do not assume complete coverage within each jurisdiction or extend the results to the whole country.
 
-The source sheet has two columns both named `NDC`; their values disagree on every row. The first is the observation NDC. The second is preserved as `NDC__2` in the extracted CSV and is not used for joins. The cleaned worksheet retains explicit zero-padded 11-character codes and the actual labeler/product/package fields. Source-row identifiers refer to the named worksheet, not to the original CMS download.
+## 2. Prepare utilization records
 
-## Eligibility and denominators
+I store NDCs as strings so their leading zeros remain intact. I check the reporting year, quarter, jurisdiction, utilization type, suppression indicator, and reimbursement values before including a record in the spending analysis.
 
-Spending analysis accepts valid NDCs, recognized jurisdictions and utilization types, 2024 quarters 1-4, known suppression indicators, and reported nonnegative reimbursement. All records sharing a duplicated fact key are quarantined rather than arbitrarily retaining one. No duplicate keys are present in this snapshot.
+Suppressed records stay in coverage counts, but their amounts remain missing. A missing amount is not zero. The spending analysis includes 504,630 observations totaling **$27,539,974,390.90**. The remaining 543,945 observations have suppressed amounts.
 
-Suppressed observations remain in coverage reporting. Their missing reimbursement is not imputed. Of 1,048,575 retained records, 543,945 are suppressed and 504,630 have reported reimbursement. The spending denominator is $27,539,974,390.90 across eligible observed records, including those without matched product metadata.
+Price comparisons additionally require positive units. A record with zero units could contribute valid reported dollars to spending analysis, but it could not supply a reimbursement-per-unit estimate. Records sharing a duplicate observation key are excluded from calculations pending review; this dataset has no duplicate observation keys.
 
-Price screening additionally requires strictly positive reported units. A zero-unit record can retain reported dollars in the spending table but cannot supply a cost-per-unit estimate. Negative and invalid source values are explicitly counted in the audit.
+## 3. Attach product information
 
-## Product NDC normalization and enrichment
+The utilization file has 11-character package NDCs. I take the first nine characters to identify the labeler/product combination. In the product directory, I pad the labeler and product segments separately to five and four characters. Padding an arbitrary unsegmented code would not establish where a missing zero belongs.
 
-The directory's segmented labeler/product codes are separately padded to historical 5/4 lengths. Taking the first nine digits of the explicit 11-digit utilization code gives the matching product key. The product key combines package sizes but distinguishes different product codes, often corresponding to different strengths or formulations.
+The directory contains 113,878 listings and 112,708 distinct product keys. I collapse identical analytical descriptors. When the same key has conflicting descriptions, I leave that key unmatched rather than choose a listing arbitrarily. There are 424 such keys; the affected listings are available in `reports/tables/directory_conflicts.csv`.
 
-The directory has 113,878 records and 112,708 distinct normalized keys. Fully identical analytic descriptors are collapsed. Keys whose remaining descriptors conflict are excluded from enrichment: 424 keys are quarantined and their source rows are retained in `directory_conflicts.csv`. The left join enforces `many_to_one`, unchanged row count, and unchanged reimbursement. The resulting unambiguous metadata covers 99.4159% of observed dollars. The remaining $160,852,518.29 stays in every overall spending denominator.
+I use a many-to-one left join. Multiple utilization records can reference one product descriptor, while unmatched utilization records retain their reported spending. The join must preserve both row count and reimbursement. Unambiguous product information covers **99.4159% of reported dollars**; the remaining **$160,852,518.29** stays in the spending denominator.
 
-This conservative conflict rule includes differences in dates, labels, and class text; it is not limited to strength conflicts. It favors transparent exclusions over choosing a first listing. NDC Directory listings include submitted information and are not by themselves proof of approval or equivalence [FDA NDC Directory](https://www.fda.gov/drugs/drug-approvals-and-databases/national-drug-code-directory).
+## 4. Analyze spending in SQL
 
-## Spending analyses
+I load the enriched utilization table into SQLite and use four queries:
 
-SQLite provides an inspectable local SQL implementation. Four query files compute product ranks and cumulative shares, jurisdiction suppression/coverage, quarterly totals with `LAG`, and marketing application category totals. Each additive output must reconcile to the same spending denominator.
+| Query | Question | Calculation |
+|---|---|---|
+| `product_spending.sql` | Which product NDCs account for spending? | Product totals, rank, share, and cumulative share |
+| `jurisdiction_coverage.sql` | How do reported amounts and coverage vary? | Jurisdiction totals, suppression, and metadata coverage |
+| `quarterly_spending.sql` | How do amounts change across quarters? | Quarterly totals, reimbursement per prescription, and `LAG` comparisons |
+| `application_spending.sql` | How is spending distributed across application categories? | Category totals and shares |
 
-Product comparisons use actual reimbursement rather than row averages. Quarterly reimbursement per prescription is total reimbursement divided by total reported prescriptions. Jurisdiction amounts are absolute values; no enrollment or case-mix adjustment is available. There is no inference that a higher-spending jurisdiction is inefficient.
+All four spending outputs reconcile to the same denominator. Product NDCs combine package sizes but do not combine every strength of a brand. Jurisdiction totals are absolute amounts; they are not adjusted for enrollment, patient mix, or drug mix. Quarterly differences describe this dataset rather than establish policy effects.
 
-The optional EPC table uses the directory's recorded `[EPC]` tags. A record may have multiple distinct tags; spending across tags overlaps and is **not additive**. Repeated identical tags on a record are counted once. No single broad clinical class is fabricated for a multi-class product.
+The optional EPC table uses the directory's recorded established-pharmacologic-class tags. A product can have several tags. I count a repeated tag once per record, but amounts across different tags overlap and must not be added as if the classes were mutually exclusive.
 
-## Secondary reimbursement-gap screen
+## 5. Compare reimbursement per unit
 
-The comparison uses prescription products labeled `NDA` or `ANDA` in the supplied directory. Biologics, OTC products, authorized-generic categories and unknown application types are excluded from this narrow screen. Category exclusion is not a statement about whether those products can ever be substituted.
+I compare prescription products recorded as NDA or ANDA within matching ingredient, strength, strength unit, dosage form, and route. Each comparison also matches jurisdiction, quarter, and utilization type. I preserve salts and release descriptors; I do not infer equivalence from shortened names or reordered multi-ingredient strings.
 
-Comparators must have the same recorded ingredient, dosage form, route, numeric strength string and strength unit. Names are case/whitespace normalized without deleting salts, formulations, or release descriptors. Multi-ingredient strings retain their recorded order; no automated equivalence across synonym or ordering differences is inferred.
+I require a recorded marketing start date no later than the quarter's end, and any marketing end date must not precede the quarter's start. This checks whether listing dates overlap the reporting period; it does not establish what the directory contained at that historical date.
 
-Within each formulation, the comparison also matches jurisdiction, quarter and utilization type. A known marketing start date must precede the end of the observation quarter, and a recorded end date must not precede its start. This checks temporal overlap but does not make a later directory snapshot a point-in-time 2024 source.
+For each matched reporting group:
 
-For reporting stratum `s` and directory application category `a`:
-
+```text
+weighted reimbursement per unit = total reimbursement / total units
+signed gross gap = (NDA price per unit - ANDA price per unit) × NDA units
+positive gross gap = max(signed gross gap, 0)
 ```
-weighted_cpu(s, a) = sum(reimbursement(s, a)) / sum(units(s, a))
-signed_gap(s) = [weighted_cpu(s, NDA) - weighted_cpu(s, ANDA)] * sum(units(s, NDA))
-positive_gap(s) = max(signed_gap(s), 0)
-```
 
-Negative gaps remain in the detail and signed aggregate. A separate positive-gap aggregate identifies price-review candidates; it does not offset these candidates with products whose comparators cost more. The 25%, 50%, 75% and 100% table mechanically scales the positive aggregate. These fractions are hypothetical sensitivities, not estimated adoption rates.
+Using ratios of sums gives utilization its appropriate weight. A simple average of row-level prices would give small and large observations equal influence.
 
-The results are bounded by observed paired NDA reimbursement. They are not observed savings or a fiscal forecast: unit-type consistency, therapeutic-equivalence ratings, substitution rules, patient needs, market availability and rebates are absent. CMS defines reimbursement as before rebates [CMS FAQ](https://www.medicaid.gov/faq/2020-04-09/92001); the [FDA Orange Book Preface](https://www.fda.gov/drugs/development-approval-process-drugs/orange-book-preface) provides the separate equivalence framework.
+The analysis identifies **562 formulations across 6,675 matched reporting groups**. Positive gross differences sum to **$516,161,761.37**. Including negative differences gives a signed aggregate of **$506,733,293.57**. The detail retains both measures. The scenario table mechanically scales the positive aggregate to 25%, 50%, 75%, and 100%; these are hypothetical fractions rather than estimated adoption rates.
 
-## Why there is no new predictive model
+## 6. Interpret the results
 
-The business question is descriptive and prioritizes transparent aggregation and validation. The original random forest provided feature importance without reported predictive validation; importance is not causal evidence. Its code is preserved in the original notebook. Adding a new model without a meaningful prediction target and use case would not strengthen this deliverable.
+I use the spending rankings to prioritize high-dollar products for review. The top 50 product NDCs account for **37.1%** of reported reimbursement. California accounts for **56.5%** of this dataset's dollars, but that share alone does not measure efficiency.
 
-## Verification
+The price differences identify investigation candidates. The extract lacks net rebates, verified reimbursement unit types, and therapeutic-equivalence determinations. Identical recorded descriptors do not prove that products can be substituted, and application categories are not definitive brand/generic labels. The comparison is not a clinical recommendation or a forecast of achievable savings.
 
-The test suite exercises NDC segmentation, name preservation, suppression/duplicate handling, many-to-one enforcement, unmatched spending, utilization weighting, stratum mismatches, future metadata and negative gaps. Integration checks reconcile source row fingerprints, input hashes, SQL totals, coverage and screening bounds. Original median, weighted and class-adjusted Q3 totals must reproduce to the cent.
+## 7. Make the results repeatable
+
+The pipeline generates the SQL tables, figures, and `reports/analysis_summary.json`. Source checksums identify the included CSV files. Tests check meaningful failure cases, including duplicate joins, mismatched formulations, future marketing dates, suppressed values, and incorrect price weighting. The verification command checks source integrity, spending totals, jurisdiction coverage, and price-comparison bounds.
+
+The notebook saves executed outputs so the reader can follow each question through the calculation and interpretation.
+
+## References
+
+- [CMS SDUD FAQs](https://www.medicaid.gov/medicaid/prescription-drugs/state-drug-utilization-data/state-drug-utilization-data-faq): reporting fields, suppression, and source-size limitations.
+- [CMS reimbursement FAQ](https://www.medicaid.gov/faq/2020-04-09/92001): reimbursement is reported before rebates.
+- [FDA NDC Directory](https://www.fda.gov/drugs/drug-approvals-and-databases/national-drug-code-directory): product listing information and its limits.
+- [FDA Orange Book Preface](https://www.fda.gov/drugs/development-approval-process-drugs/orange-book-preface): the separate framework for therapeutic-equivalence evaluations.

@@ -15,10 +15,10 @@ class PreparationTests(unittest.TestCase):
                 "STARTMARKETINGDATE": "20200101", "ENDMARKETINGDATE": None, "LABELERNAME": "Company",
                 "PRODUCTTYPENAME": "HUMAN PRESCRIPTION DRUG"}
         conflicting = dict(base, ACTIVE_NUMERATOR_STRENGTH="20")
-        directory, conflicts, audit = prepare_directory(pd.DataFrame([base, conflicting]))
+        directory, conflicts, stats = prepare_directory(pd.DataFrame([base, conflicting]))
         self.assertTrue(directory.empty)
         self.assertEqual(len(conflicts), 2)
-        self.assertEqual(audit["conflicting_directory_keys"], 1)
+        self.assertEqual(stats["conflicting_directory_keys"], 1)
 
     def test_identical_directory_descriptors_collapse_safely(self):
         base = {"PRODUCTNDC": "0002-0152", "PROPRIETARYNAME": "Test", "NONPROPRIETARYNAME": "drug",
@@ -26,10 +26,10 @@ class PreparationTests(unittest.TestCase):
                 "ACTIVE_INGRED_UNIT": "mg/1", "MARKETINGCATEGORYNAME": "NDA", "PHARM_CLASSES": "Class [EPC]",
                 "STARTMARKETINGDATE": "20200101", "ENDMARKETINGDATE": None, "LABELERNAME": "Company",
                 "PRODUCTTYPENAME": "HUMAN PRESCRIPTION DRUG"}
-        directory, conflicts, audit = prepare_directory(pd.DataFrame([base, base]))
+        directory, conflicts, stats = prepare_directory(pd.DataFrame([base, base]))
         self.assertEqual(len(directory), 1)
         self.assertTrue(conflicts.empty)
-        self.assertEqual(audit["identical_descriptor_duplicates_collapsed"], 1)
+        self.assertEqual(stats["identical_descriptor_duplicates_collapsed"], 1)
 
     def test_segment_aware_ndc_normalization(self):
         self.assertEqual(ndc_product_key("0002-0152"), "000020152")
@@ -51,11 +51,11 @@ class PreparationTests(unittest.TestCase):
             "Units Reimbursed": [2, None, 0, 1, 1], "Number of Prescriptions": [1, None, 1, 1, 1],
             "Medicaid Amount Reimbursed": [10, None, 20, 5, 5],
         })
-        prepared, audit = prepare_utilization(data)
-        self.assertEqual(audit["spend_eligible_records"], 2)
-        self.assertEqual(audit["price_eligible_records"], 1)
-        self.assertEqual(audit["duplicate_grain_records_quarantined"], 2)
-        self.assertEqual(audit["observed_pre_rebate_reimbursement"], 30)
+        prepared, stats = prepare_utilization(data)
+        self.assertEqual(stats["spend_eligible_records"], 2)
+        self.assertEqual(stats["price_eligible_records"], 1)
+        self.assertEqual(stats["duplicate_grain_records_quarantined"], 2)
+        self.assertEqual(stats["observed_pre_rebate_reimbursement"], 30)
         self.assertTrue(pd.isna(prepared.loc[1, "reimbursement"]))
 
     def test_join_rejects_duplicate_dimension_keys(self):
@@ -67,10 +67,10 @@ class PreparationTests(unittest.TestCase):
     def test_left_join_preserves_unmatched_spending(self):
         observations = pd.DataFrame({"product_key": ["a", "b"], "reimbursement": [100, 50], "spend_eligible": [True, True]})
         directory = pd.DataFrame({"product_key": ["a"], "ingredient": ["a"]})
-        joined, audit = attach_metadata(observations, directory)
+        joined, stats = attach_metadata(observations, directory)
         self.assertEqual(len(joined), 2)
         self.assertEqual(joined.reimbursement.sum(), 150)
-        self.assertEqual(audit["unmatched_reimbursement"], 50)
+        self.assertEqual(stats["unmatched_reimbursement"], 50)
 
 
 class GapTests(unittest.TestCase):
@@ -88,10 +88,10 @@ class GapTests(unittest.TestCase):
         })
 
     def test_weighted_price_is_ratio_of_sums(self):
-        result, audit = reimbursement_gaps(self.fixture())
+        result, stats = reimbursement_gaps(self.fixture())
         self.assertAlmostEqual(result.iloc[0].nda_weighted_cpu, 19)
         self.assertAlmostEqual(result.iloc[0].anda_weighted_cpu, 2.8)
-        self.assertAlmostEqual(audit["illustrative_positive_gross_gap"], 162)
+        self.assertAlmostEqual(stats["illustrative_positive_gross_gap"], 162)
 
     def test_different_strengths_are_not_compared(self):
         data = self.fixture()
@@ -114,10 +114,10 @@ class GapTests(unittest.TestCase):
     def test_negative_gaps_are_reported_but_not_positive_opportunities(self):
         data = self.fixture()
         data.loc[data.application_type.eq("ANDA"), "reimbursement"] = [500, 500]
-        result, audit = reimbursement_gaps(data)
+        result, stats = reimbursement_gaps(data)
         self.assertLess(result.iloc[0].signed_gross_gap, 0)
-        self.assertEqual(audit["illustrative_positive_gross_gap"], 0)
-        self.assertEqual(audit["negative_gap_strata"], 1)
+        self.assertEqual(stats["illustrative_positive_gross_gap"], 0)
+        self.assertEqual(stats["negative_gap_strata"], 1)
 
 
 if __name__ == "__main__":

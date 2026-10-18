@@ -1,45 +1,61 @@
-# Data guide
+# The data
 
-## What is included
+I use a 2024 Medicaid utilization extract and an FDA product directory extract. The files are included as compressed CSVs, so the project runs without credentials or a database server.
 
-The compressed CSVs are cached-value exports of the supplied Excel worksheets. They are **not a newly downloaded CMS national release**. They preserve source strings, numeric cell values, Excel errors and blank values; formulas are represented by their stored outputs, not recalculated.
+| File | Contents | Records |
+|---|---|---:|
+| `raw/utilization.csv.gz` | Jurisdiction, reporting period, package NDC, suppression flags, units, prescriptions, and reimbursement | 1,048,575 |
+| `raw/product_directory.csv.gz` | Product NDCs, names, ingredients, forms, routes, strengths, application categories, and listing dates | 113,878 |
+| `raw/extraction_manifest.json` | Worksheet names, export counts, and source-row information | Two source exports |
 
-| File | Worksheet | Role |
+## Coverage
+
+The utilization extract covers 2024 reporting in AK, AL, AR, AZ, CA, CO, CT, DC, DE, FL, GA, and HI. It reaches the worksheet's 1,048,576-row capacity including the header. Complete national or within-jurisdiction coverage is not established.
+
+Of the utilization observations, 504,630 contain reported reimbursement totaling $27.54B. Another 543,945 have suppressed amounts. I leave those amounts missing rather than impute them.
+
+The product directory includes marketing dates through November 2025; its download date is not documented. I use quarter-overlap checks for price comparisons, while treating the directory as a supplied snapshot rather than historical point-in-time data.
+
+## Key fields
+
+| Analysis field | Meaning | Handling |
 |---|---|---|
-| `raw/utilization_original.csv.gz` | STATE (OG) | Independent source reconciliation |
-| `raw/utilization_cleaned_legacy.csv.gz` | STATE (cleaned ndc) | Main fact source; preserves explicit 11-character NDC strings |
-| `raw/ndc_directory.csv.gz` | NDC Directory (OG) | Product descriptors, strengths, routes and application categories |
-| `raw/ndc_labels_legacy.csv.gz` | NDC Directory (FINAL) | Preserved legacy classification evidence; not used as an authoritative taxonomy |
-| `raw/analysis_legacy.csv.gz` | INNER JOIN MASTER (No Nulls) | Reproduction of the original Q3 calculations |
-| `raw/extraction_manifest.json` | All five exports | Counts, row positions, error counts and Excel-limit flags |
-
-Sources: supplied 2024 State Drug Utilization workbook and FDA NDC Directory workbook. The original upstream utilization dataset is [CMS 2024 SDUD](https://data.medicaid.gov/dataset/61729e5a-7aa8-448c-8903-ba3e0cd0ea3c). The supplied directory has marketing dates through November 2025; its acquisition date is not documented. No live external source is silently substituted.
-
-## Main analysis fields
-
-| Field | Type / meaning | Handling |
-|---|---|---|
-| `source_row` | Original worksheet row | Traceability, not a patient identifier |
-| `utilization_type` | MCOU or FFSU | Preserved in observation grain and price strata |
+| `source_row` | Row in the source worksheet | Traceability within the source file |
+| `utilization_type` | Managed-care or fee-for-service reporting | Part of the observation key |
 | `state` | Jurisdiction abbreviation | Includes Washington, DC |
-| `ndc11` | 11-character package code | Load as a string to preserve leading zeros |
-| `product_key` | 9-character labeler/product key | Combines package sizes |
-| `year`, `quarter` | Reporting period | 2024; quarters 1-4 |
-| `suppressed` | CMS suppression flag | Missing amounts remain unknown |
-| `units` | Reported units reimbursed | Physical unit type is unavailable in this snapshot |
-| `prescriptions` | Reported prescription count | Aggregate reporting measure |
-| `reimbursement` | Medicaid amount reimbursed | Before rebates; not a net cost |
-| `cost_per_unit` | Reimbursement divided by positive units | Computed without row-level rounding |
-| `region` | Census-style geography | Midwest is included in the mapping but not the extract |
-| `application_type` | Directory marketing category | Does not guarantee brand/generic identity |
-| `ingredient`, `dosage_form`, `route` | Recorded formulation descriptors | Preserve salts and release markers |
-| `strength`, `strength_unit` | Recorded potency descriptors | Not equivalent to the reimbursement unit type |
-| `marketing_start`, `marketing_end` | Recorded listing dates | Temporal overlap check, not historical snapshot proof |
-| `spend_eligible`, `price_eligible` | Validation flags | Separate spending from price-screening eligibility |
-| `metadata_matched` | Unambiguous enrichment status | Unmatched dollars stay in spending totals |
+| `ndc11` | Package-level NDC | An 11-character string |
+| `product_key` | Labeler/product code | Nine characters; combines package sizes |
+| `year`, `quarter` | Reporting period | Year 2024, quarters 1-4 |
+| `suppressed` | Whether reported values are suppressed | Missing dollars remain unknown |
+| `units`, `prescriptions` | Reported utilization measures | Aggregate reporting values |
+| `reimbursement` | Medicaid amount reimbursed | Before manufacturer rebates |
+| `cost_per_unit` | Reimbursement divided by positive units | Calculated without row-level rounding |
+| `application_type` | Product directory marketing category | Not a definitive brand/generic label |
+| `ingredient`, `dosage_form`, `route` | Recorded product descriptors | Salt and release distinctions remain intact |
+| `strength`, `strength_unit` | Recorded potency descriptors | Separate from reimbursement unit type |
+| `marketing_start`, `marketing_end` | Recorded listing dates | Used to check quarter overlap |
+| `spend_eligible`, `price_eligible` | Calculation eligibility | Spending and price comparisons have distinct requirements |
+| `metadata_matched` | Product information was attached without conflict | Unmatched dollars remain in spending totals |
 
-## Generated outputs
+## Using the files
 
-`processed/analytics.sqlite` contains the regenerated `utilization` table and is excluded from Git. `reports/tables/` contains additive spending tables, overlapping EPC tags, conflict listings, legacy reproduction and gap-screening detail. `reports/audit.json` records counts, checksums and reconciliation evidence.
+Load NDC columns explicitly as strings. For example:
 
-The source CSVs are gzip-compressed to keep each GitHub file below its ordinary per-file size limit. Read NDC fields explicitly as strings in pandas or spreadsheet import tools. Do not open a CSV by double-clicking in Excel and assume the leading zeros will remain intact.
+```python
+import pandas as pd
+
+utilization = pd.read_csv("data/raw/utilization.csv.gz", dtype={"NDC": "string"})
+products = pd.read_csv("data/raw/product_directory.csv.gz", dtype="string")
+```
+
+The CSV files contain stored worksheet values, including blanks and source error markers. The optional extraction command reads cached formula values; it does not recalculate a workbook. `source_row` refers to the worksheet rather than a CMS patient identifier.
+
+The pipeline creates `processed/analytics.sqlite`, which is excluded from Git. Finished tables are in `reports/tables/`, and calculation counts and input checksums are in `reports/analysis_summary.json`.
+
+## Sources
+
+- [CMS 2024 State Drug Utilization Data](https://data.medicaid.gov/dataset/61729e5a-7aa8-448c-8903-ba3e0cd0ea3c): upstream utilization source; the included extract is the fixed dataset used here, rather than a fresh national download.
+- [FDA NDC Directory](https://www.fda.gov/drugs/drug-approvals-and-databases/national-drug-code-directory): upstream product listing source.
+- [CMS SDUD definitions](https://www.medicaid.gov/medicaid/prescription-drugs/state-drug-utilization-data/state-drug-utilization-data-faq): suppression, reimbursement, and reporting units.
+
+The workbook export locations are recorded in `raw/extraction_manifest.json`. To export the two worksheets again, run `python -m medicaid_analytics.extract --source-dir /path/to/workbooks` from the repository root.

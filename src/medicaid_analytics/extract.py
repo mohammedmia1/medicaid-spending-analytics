@@ -95,11 +95,8 @@ def main() -> None:
     parser.add_argument("--output-dir", type=Path, default=Path("data/raw"))
     args = parser.parse_args()
     tasks = [
-        ("(FINAL) FINAL CIS450 MEDICAID (1).xlsx", "STATE (OG)", "utilization_original.csv.gz"),
-        ("(FINAL) FINAL CIS450 MEDICAID (1).xlsx", "STATE (cleaned ndc)", "utilization_cleaned_legacy.csv.gz"),
-        ("(FINAL) FINAL CIS450 MEDICAID (1).xlsx", "NDC Directory (OG)", "ndc_directory.csv.gz"),
-        ("(FINAL) FINAL CIS450 MEDICAID (1).xlsx", "NDC Directory (FINAL)", "ndc_labels_legacy.csv.gz"),
-        ("CIS 450 Q1-Q2  (1).xlsx", "INNER JOIN MASTER (No Nulls)", "analysis_legacy.csv.gz"),
+        ("(FINAL) FINAL CIS450 MEDICAID (1).xlsx", "STATE (cleaned ndc)", "utilization.csv.gz"),
+        ("(FINAL) FINAL CIS450 MEDICAID (1).xlsx", "NDC Directory (OG)", "product_directory.csv.gz"),
     ]
     results = []
     for filename, sheet, output in tasks:

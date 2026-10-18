@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "medicaid-spending-analytics"
 version = "1.0.0"
-description = "Audit-first analysis of an archived 2024 Medicaid prescription utilization extract"
+description = "Medicaid prescription spending analysis with Python and SQL"
 requires-python = ">=3.11"
 dependencies = ["pandas>=2.2,<3.1", "numpy>=1.26,<3", "matplotlib>=3.8,<4", "lxml>=5,<7"]
 

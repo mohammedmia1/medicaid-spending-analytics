@@ -1,4 +1,4 @@
-"""Build and execute the compact portfolio notebook without requiring Jupyter."""
+"""Execute the guided spending analysis and save notebook outputs and figures."""
 from __future__ import annotations
 
 import base64
@@ -26,7 +26,7 @@ def main() -> None:
                       "source": [f"![{title}](attachment:{filename})"],
                       "attachments": {filename: {"image/png": base64.b64encode((ROOT / "reports/figures" / filename).read_bytes()).decode()}}})
 
-    markdown("# Medicaid prescription spending\n\nA reproducible healthcare analytics case study using an archived 2024 extract.\n\n**Scope:** 11 states and Washington, DC. **Primary questions:** where does reported spending concentrate, and what data-quality constraints shape interpretation?\n\nThe original ASU project was completed by Annie Qin, Marcello Borromeo, Dhruv Nair and Mo Mia. This subsequent portfolio refinement preserves the original submission and documents its changes.")
+    markdown("# Medicaid prescription spending\n\n**Mohammed Mia | Python + SQL | 2024**\n\nI built this analysis to answer a practical question: **where does Medicaid prescription spending concentrate, and which products deserve a closer price review?**\n\nI work through the data, prepare a product-enriched utilization table, and use SQL to answer three questions: which product NDCs account for spending, how spending varies across jurisdictions and quarters, and where comparable products have different reimbursement per unit.\n\nThe dataset covers **11 states and Washington, DC**. It contains **$27.54B in reported reimbursement before rebates**. This is a descriptive analysis of the included extract; it is not a national spending estimate.")
     code('''from pathlib import Path
 import sys
 import json
@@ -36,63 +36,105 @@ import pandas as pd
 ROOT = next(p for p in [Path.cwd(), Path.cwd().parent] if (p / "src/medicaid_analytics").exists())
 sys.path.insert(0, str(ROOT / "src"))
 from medicaid_analytics.pipeline import run
+from medicaid_analytics.prepare import prepare_utilization, prepare_directory, attach_metadata
+from medicaid_analytics.compare import reimbursement_gaps
 from medicaid_analytics.verify import verify
+
 if not (ROOT / "data/processed/analytics.sqlite").exists():
     run(ROOT)
-audit = json.loads((ROOT / "reports/audit.json").read_text())
+summary = json.loads((ROOT / "reports/analysis_summary.json").read_text())
 connection = sqlite3.connect(ROOT / "data/processed/analytics.sqlite")
-print(audit["scope"])
+print(summary["scope"])
 ''')
-    markdown("## 1. Audit the retained source before interpreting results\n\nBoth utilization sheets reach Excel's maximum populated row. Suppression means the reported dollar total excludes unknown amounts. It is not a national or complete net-spending estimate.")
-    code('''summary = pd.Series({
-    "Retained records": audit["utilization"]["source_records"],
-    "Suppressed records": audit["utilization"]["suppressed_records"],
-    "Reported spending records": audit["utilization"]["spend_eligible_records"],
-    "Reported pre-rebate reimbursement": audit["headline"]["total_reimbursement"],
-    "Original/cleaned fact rows reconcile": audit["original_source_reconciliation"]["order_independent_fact_rows_match"],
-    "Metadata matched share of dollars": audit["join"]["matched_spending_share"],
-})
-print(summary.to_string())
-print("Jurisdictions:", ", ".join(audit["utilization"]["observed_states"]))
+
+    markdown("## 1. Get to know the data\n\nI start with utilization records and a product directory. A utilization record represents a reporting type, jurisdiction, package NDC, year, and quarter. The product directory supplies the ingredient, formulation, and application category.\n\nI load NDCs as text because their leading zeros matter. I use only the source fields needed for this analysis.")
+    code('''columns = ["source_row", "Utilization Type", "State", "NDC", "Year", "Quarter",
+           "Suppression Used", "Product Name", "Units Reimbursed",
+           "Number of Prescriptions", "Medicaid Amount Reimbursed"]
+records = pd.read_csv(ROOT / "data/raw/utilization.csv.gz", usecols=columns, dtype={"NDC": "string"})
+product_records = pd.read_csv(ROOT / "data/raw/product_directory.csv.gz", dtype="string")
+print(f"Utilization records: {len(records):,}")
+print(f"Product listings: {len(product_records):,}")
+print(records[["State", "NDC", "Quarter", "Suppression Used"]].head().to_string(index=False))
 ''')
-    markdown("## 2. Rank spending with SQL\n\nThe query uses `ROW_NUMBER`, cumulative window sums, and a denominator that includes unmatched metadata. Product keys combine package sizes; repeated product names can represent distinct product codes.")
-    code('''product_sql = (ROOT / "sql/product_spending.sql").read_text()
-products = pd.read_sql_query(product_sql, connection)
-print(products.head(10)[["product_key", "product_name", "reimbursement", "spend_share"]].to_string(index=False))
-print(f"Top 10 share: {products.head(10).spend_share.sum():.1%}")
-print(f"Top 50 share: {products.head(50).spend_share.sum():.1%}")
+    markdown("## 2. Keep missing amounts separate from zero\n\n**Question:** which records can support spending and price calculations?\n\nI check reporting fields, NDC format, suppression, duplicates, and numeric values. Suppressed amounts remain missing. A price calculation additionally requires positive units. The preparation function keeps these rules in one place so the notebook and pipeline use the same definitions.")
+    code('''utilization, record_stats = prepare_utilization(records)
+print(f"Records with reported reimbursement: {record_stats['spend_eligible_records']:,}")
+print(f"Records with suppressed amounts: {record_stats['suppressed_records']:,}")
+print(f"Reported reimbursement: ${record_stats['observed_pre_rebate_reimbursement']:,.2f}")
+print("Jurisdictions:", ", ".join(record_stats["observed_states"]))
 ''')
-    figure("top_products.png", "Highest-spending product keys")
-    figure("spending_concentration.png", "Cumulative spending concentration")
-    markdown("## 3. Assess coverage and quarterly patterns\n\nAbsolute jurisdiction amounts do not measure efficiency. Suppressed record shares do not estimate missing dollars. No Midwest jurisdiction is retained. Quarterly changes are descriptive and are not attributed to policy interventions.")
+    markdown("**Observation:** 504,630 records contain reported reimbursement, while 543,945 have suppressed amounts. **Decision:** I use reported amounts for spending totals and retain all observations for coverage reporting. I do not estimate the dollars hidden by suppression.")
+
+    markdown("## 3. Join product information without changing spending\n\n**Question:** can each utilization record receive one product description?\n\nI normalize the directory's segmented product codes and join them to the product portion of the package NDC. I collapse identical descriptors, leave conflicting keys unmatched, and require a many-to-one left join. This keeps unmatched spending in the denominator and prevents duplicate listings from multiplying reimbursement.")
+    code('''directory, conflicts, directory_stats = prepare_directory(product_records)
+joined, join_stats = attach_metadata(utilization, directory)
+print(f"Conflicting product keys left unmatched: {directory_stats['conflicting_directory_keys']:,}")
+print(f"Product metadata coverage by dollars: {join_stats['matched_spending_share']:.2%}")
+print(f"Unmatched reimbursement retained in totals: ${join_stats['unmatched_reimbursement']:,.2f}")
+print(f"Utilization rows before / after join: {len(utilization):,} / {len(joined):,}")
+''')
+    markdown("**Result:** unambiguous product descriptions cover 99.42% of reported dollars. The remaining $160.85M remains part of spending totals. Matching information affects how a record can be described, not whether its reported reimbursement exists.")
+
+    markdown("## 4. Find the products that account for spending\n\n**Question:** which product NDCs contribute the most reimbursement?\n\nI use SQL to aggregate eligible spending, rank products with `ROW_NUMBER`, and calculate cumulative shares with a window sum. The denominator includes unmatched product information.\n\nA product NDC combines package sizes. Different strengths of the same brand can still appear as separate product keys.")
+    code('''products = pd.read_sql_query((ROOT / "sql/product_spending.sql").read_text(), connection)
+top_products = products.head(10)[["product_key", "product_name", "reimbursement", "spend_share"]].copy()
+top_products["reimbursement"] = top_products["reimbursement"].map(lambda x: f"${x:,.2f}")
+top_products["spend_share"] = top_products["spend_share"].map(lambda x: f"{x:.2%}")
+print(top_products.to_string(index=False))
+''')
+    figure("top_products.png", "Top product NDCs by reported reimbursement")
+    code('''for count in [10, 50, 100]:
+    share = products.head(count)["spend_share"].sum()
+    print(f"Top {count} product NDCs: {share:.1%} of reported reimbursement")
+''')
+    figure("spending_concentration.png", "Cumulative spending share")
+    markdown("**Observation:** Biktarvy product NDC 619582501 accounts for $907.89M. The top 50 product NDCs account for 37.1% of reimbursement. **Decision:** I would start detailed spending reviews with this concentrated product set rather than treating every product as an equal priority.")
+
+    markdown("## 5. Compare jurisdictions with coverage in view\n\n**Question:** where are the reported dollars concentrated?\n\nI compare jurisdiction totals alongside suppression and record coverage. The SQL query keeps suppressed record counts separate from known reimbursement. These amounts are not adjusted for enrollment or drug mix.")
     code('''coverage = pd.read_sql_query((ROOT / "sql/jurisdiction_coverage.sql").read_text(), connection)
-quarters = pd.read_sql_query((ROOT / "sql/quarterly_spending.sql").read_text(), connection)
-print(coverage[["state", "source_records", "suppressed_record_share", "reimbursement"]].to_string(index=False))
-print("\\nQuarterly results:")
-print(quarters.to_string(index=False))
+view = coverage[["state", "source_records", "suppressed_record_share", "reimbursement"]].copy()
+view["suppressed_record_share"] = view["suppressed_record_share"].map(lambda x: f"{x:.1%}")
+view["reimbursement"] = view["reimbursement"].map(lambda x: f"${x / 1e9:.3f}B")
+print(view.to_string(index=False))
+ca_share = coverage.loc[coverage["state"].eq("CA"), "reimbursement"].sum() / coverage["reimbursement"].sum()
+print(f"California share of reported reimbursement: {ca_share:.1%}")
 ''')
-    figure("jurisdiction_coverage.png", "Jurisdiction spending and suppression coverage")
-    markdown("## 4. Reproduce and challenge the original Q3 result\n\nThe original ingredient-level calculations reproduce to the cent. However, name-based brand labels, ingredient-only grouping, rounded prices and unsupported adoption assumptions prevent those figures from establishing practical or net savings.")
-    code('''legacy = audit["legacy_reproduction"]
-for key in ["legacy_median_scenario", "legacy_weighted_scenario", "legacy_class_adjusted_scenario"]:
-    print(f"{key}: ${legacy[key]:,.2f}")
-print(f"Paper's approximate class-adjusted claim: ${legacy['paper_claimed_class_adjusted_scenario']:,.0f}")
+    figure("jurisdiction_coverage.png", "Jurisdiction spending and suppression")
+    markdown("**Observation:** California contributes 56.5% of the dataset's reimbursement. **Interpretation:** this describes concentration in the extract, not relative efficiency. A fair efficiency comparison would require enrollment, patient and drug mix, and confirmed reporting completeness. Suppressed record share is not the share of dollars missing.")
+
+    markdown("## 6. Look at quarters and application categories\n\nI use quarterly totals and `LAG` to describe changes during 2024. I also summarize directory application categories. These comparisons help describe the spending mix; application categories are not a complete brand/generic classification.")
+    code('''quarters = pd.read_sql_query((ROOT / "sql/quarterly_spending.sql").read_text(), connection)
+view = quarters[["quarter", "reimbursement", "reimbursement_per_prescription", "quarter_change"]].copy()
+view["reimbursement"] = view["reimbursement"].map(lambda x: f"${x / 1e9:.3f}B")
+view["reimbursement_per_prescription"] = view["reimbursement_per_prescription"].map(lambda x: f"${x:.2f}")
+view["quarter_change"] = view["quarter_change"].map(lambda x: "--" if pd.isna(x) else f"{x:+.1%}")
+print(view.to_string(index=False))
 ''')
-    markdown("## 5. A narrower price-review screen\n\nNDA- and ANDA-listed prescription products are compared within identical recorded ingredient, strength, strength unit, dosage form, route, jurisdiction, quarter and utilization type. Reimbursement-weighted prices are ratios of sums. Marketing-date overlap is checked. This is **not an equivalence determination or net-savings estimate**. Unit types, rebates and feasibility remain unverified.")
-    code('''screen = audit["reimbursement_gap_screening"]
-print("Paired formulations:", screen["distinct_paired_formulations"])
-print("Paired reporting strata:", screen["paired_strata"])
-print(f"Illustrative positive gross reimbursement gap: ${screen['illustrative_positive_gross_gap']:,.2f}")
-print(f"Signed gap including negative comparisons: ${screen['signed_gross_gap']:,.2f}")
-print(screen["interpretation"])
-ranking = pd.read_csv(ROOT / "reports/tables/formulation_gap_ranking.csv")
-print(ranking.head(5)[["ingredient", "dosage_form", "strength", "strength_unit", "positive_gross_gap"]].to_string(index=False))
+    code('''applications = pd.read_sql_query((ROOT / "sql/application_spending.sql").read_text(), connection)
+view = applications.head(5)[["application_type", "reimbursement", "spend_share"]].copy()
+view["reimbursement"] = view["reimbursement"].map(lambda x: f"${x / 1e9:.3f}B")
+view["spend_share"] = view["spend_share"].map(lambda x: f"{x:.1%}")
+print(view.to_string(index=False))
 ''')
-    figure("formulation_gaps.png", "Formulations for further price review")
-    markdown("## 6. Validation and decision boundary\n\nPrioritize high-dollar products for investigation. Before proposing interventions, obtain complete dated source coverage, unit types, appropriate FDA equivalence references, net rebate effects and stakeholder review. No new machine-learning model is needed for this descriptive decision.\n\nSee `docs/METHODOLOGY.md`, `docs/AUDIT_REPORT.md` and `data/README.md` for detailed definitions and limitations.")
+    markdown("**Interpretation:** quarterly changes describe this extract; they do not establish a policy effect. Category totals describe recorded product listings, without implying that every NDA-listed product is a brand or every comparison is substitutable.")
+
+    markdown("## 7. Compare like-for-like recorded formulations\n\n**Question:** where do products with matching recorded descriptors have different reimbursement per unit?\n\nI compare NDA- and ANDA-listed prescription products only when ingredient, strength, strength unit, dosage form, and route match. I also match jurisdiction, quarter, and utilization type, and check whether recorded marketing dates overlap the quarter.\n\nFor each side, I calculate **total reimbursement ÷ total units**. I then multiply the unit-price difference by NDA units to obtain a signed gross difference. I retain negative differences and report positive differences separately.")
+    code('''gaps, price_stats = reimbursement_gaps(joined)
+print(f"Matched recorded formulations: {price_stats['distinct_paired_formulations']:,}")
+print(f"Matched reporting groups: {price_stats['paired_strata']:,}")
+print(f"Positive gross reimbursement gap: ${price_stats['illustrative_positive_gross_gap']:,.2f}")
+print(f"Signed gross gap, including negative differences: ${price_stats['signed_gross_gap']:,.2f}")
+del records, product_records, utilization, directory, joined
+''')
+    figure("formulation_gaps.png", "Recorded formulations for price review")
+    markdown("**Result:** 562 recorded formulations appear in 6,675 matched reporting groups. Positive differences sum to $516.16M. **Decision:** I treat these as products to investigate, not as a forecast of savings. The extract lacks verified reimbursement unit types, rebate effects, and therapeutic-equivalence determinations. Identical descriptors do not establish clinical substitutability.")
+
+    markdown("## 8. Check the results and identify the next decision\n\nI check source-file integrity, matching assumptions, spending totals, coverage, and price-comparison bounds. The same checks run in GitHub Actions.\n\nMy recommendation is to prioritize the high-dollar product set, then verify complete reporting, unit types, equivalence, availability, and net rebate effects before evaluating an intervention. The spending findings stand on their own; the price comparison supports a narrower investigation.\n\nDetails: [methodology](../docs/METHODOLOGY.md), [data guide](../data/README.md), and [SQL queries](../sql/).")
     code('''verify(ROOT)
 connection.close()
 ''')
+
     namespace = {"__name__": "__main__"}
     os.chdir(ROOT)
     execution = 0

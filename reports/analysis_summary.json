@@ -1,5 +1,5 @@
 {
-  "scope": "Archived 2024 extract: 11 states and Washington, DC; not national",
+  "scope": "2024 Medicaid utilization extract: 11 states and Washington, DC",
   "utilization": {
     "source_records": 1048575,
     "invalid_ndc_records": 0,
@@ -32,27 +32,6 @@
       2024
     ]
   },
-  "original_source_reconciliation": {
-    "original_records": 1048575,
-    "original_observed_states": [
-      "AK",
-      "AL",
-      "AR",
-      "AZ",
-      "CA",
-      "CO",
-      "CT",
-      "DC",
-      "DE",
-      "FL",
-      "GA",
-      "HI"
-    ],
-    "original_reimbursement": 27539974390.899998,
-    "duplicate_header_ndc_disagreement_records": 1048575,
-    "original_cleaned_reimbursement_difference": -3.814697265625e-06,
-    "order_independent_fact_rows_match": true
-  },
   "directory": {
     "directory_records": 113878,
     "invalid_directory_keys": 0,
@@ -67,17 +46,6 @@
     "unmatched_spend_eligible_records": 17321,
     "unmatched_reimbursement": 160852518.29,
     "matched_spending_share": 0.9941593076301788
-  },
-  "legacy_reproduction": {
-    "legacy_input_records": 504630,
-    "legacy_descriptive_complete_records": 491838,
-    "legacy_eligible_ingredient_names": 537,
-    "legacy_median_scenario": 1824211090.0338001,
-    "legacy_weighted_scenario": 1752285190.5117543,
-    "legacy_class_adjusted_scenario": 987704842.0406663,
-    "paper_claimed_class_adjusted_scenario": 1200000000,
-    "status": "Original calculation reproduced, but its assumptions do not establish actual savings.",
-    "paper_overstatement_vs_saved_class_adjusted_output": 212295157.95933366
   },
   "reimbursement_gap_screening": {
     "screening_input_records": 426222,
@@ -101,10 +69,7 @@
     "top_product_reimbursement": 907888446.52
   },
   "input_sha256": {
-    "analysis_legacy.csv.gz": "7a1e12c0703fa7388fb5c451aba688e0d949a3c13170cf9cea3a7e5db18f6026",
-    "ndc_directory.csv.gz": "ad850a6697075bc71296cbe67d91f05a49775892c867bd2a1801c3f60a6d5d9c",
-    "ndc_labels_legacy.csv.gz": "c36f2d9ec0820ae95210fb66cb0d787ace35787af89559ae87f91870a8f9ca59",
-    "utilization_cleaned_legacy.csv.gz": "e91850d6dd2bdf7868dd8c252597de5a02387aec222abed25d021b1ba55a503e",
-    "utilization_original.csv.gz": "ddbf074e8c1e7afa35411c7a44d5b26602e8c614a48c0e8755446786da927076"
+    "product_directory.csv.gz": "ad850a6697075bc71296cbe67d91f05a49775892c867bd2a1801c3f60a6d5d9c",
+    "utilization.csv.gz": "e91850d6dd2bdf7868dd8c252597de5a02387aec222abed25d021b1ba55a503e"
   }
 }

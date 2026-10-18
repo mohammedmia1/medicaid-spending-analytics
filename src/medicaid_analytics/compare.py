@@ -47,7 +47,7 @@ def reimbursement_gaps(frame: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
     result = result.sort_values("positive_gross_gap", ascending=False).reset_index(drop=True)
     # Nonnegative comparison prices imply a gap bounded by observed NDA spending.
     assert (result["positive_gross_gap"] <= result["reimbursement_nda"] + 0.01).all()
-    audit = {
+    stats = {
         "screening_input_records": len(sample), "paired_strata": len(result),
         "distinct_paired_formulations": len(result[FORMULATION].drop_duplicates()),
         "positive_gap_strata": int(result["positive_gross_gap"].gt(0).sum()),
@@ -57,37 +57,4 @@ def reimbursement_gaps(frame: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
         "signed_gross_gap": float(result["signed_gross_gap"].sum()),
         "interpretation": "Illustrative pre-rebate reimbursement-gap screening; not verified substitution or net savings.",
     }
-    return result, audit
-
-
-def reproduce_legacy(frame: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
-    """Reproduce Q3 cached-input calculations solely for an audit comparison."""
-    required = ["NONPROPRIETARYNAME", "BRAND OR GENERIC", "PHARM_CLASSES", "Drug Class"]
-    sample = frame.dropna(subset=required).copy()
-    sample["Cost per Unit"] = pd.to_numeric(sample["Cost per Unit"], errors="coerce")
-    counts = sample.groupby(["NONPROPRIETARYNAME", "BRAND OR GENERIC"]).size().unstack(fill_value=0)
-    names = counts.index[(counts.get("Brand", 0) > 0) & (counts.get("Generic", 0) > 0)]
-    sample = sample.loc[sample["NONPROPRIETARYNAME"].isin(names)]
-    prices = sample.groupby(["NONPROPRIETARYNAME", "BRAND OR GENERIC"])["Cost per Unit"].median().unstack().dropna()
-    generic = sample.loc[sample["BRAND OR GENERIC"].eq("Generic")].copy()
-    generic["weighted_numerator"] = generic["Cost per Unit"] * generic["Units Reimbursed"]
-    totals = generic.groupby("NONPROPRIETARYNAME")[["weighted_numerator", "Units Reimbursed"]].sum()
-    prices["Weighted_Generic_CPU"] = totals["weighted_numerator"] / totals["Units Reimbursed"]
-    prices["Brand_Units"] = sample.loc[sample["BRAND OR GENERIC"].eq("Brand")].groupby("NONPROPRIETARYNAME")["Units Reimbursed"].sum()
-    prices["Potential_Savings_Median"] = (prices["Brand"] - prices["Generic"]) * prices["Brand_Units"]
-    prices["Potential_Savings_Weighted"] = (prices["Brand"] - prices["Weighted_Generic_CPU"]) * prices["Brand_Units"]
-    rates = {"Antidiabetic": .60, "Immunology / Autoimmune": .20, "Mental Health": .70,
-             "Cardiovascular": .85, "GI / Acid Suppression": .80, "Pain / Analgesic": .75,
-             "Anti-infective": .80, "Respiratory": .70, "Oncology": .10, "Hormonal / Endocrine": .60}
-    classes = sample.groupby("NONPROPRIETARYNAME")["Drug Class"].agg(lambda x: x.mode().iloc[0])
-    prices["Legacy_Class"] = classes
-    prices["Legacy_Rate"] = prices["Legacy_Class"].map(rates).fillna(.50)
-    prices["Legacy_Class_Adjusted"] = prices["Potential_Savings_Weighted"] * prices["Legacy_Rate"]
-    summary = {"legacy_input_records": len(frame), "legacy_descriptive_complete_records": len(frame.dropna(subset=required)),
-               "legacy_eligible_ingredient_names": len(names),
-               "legacy_median_scenario": float(prices["Potential_Savings_Median"].sum()),
-               "legacy_weighted_scenario": float(prices["Potential_Savings_Weighted"].sum()),
-               "legacy_class_adjusted_scenario": float(prices["Legacy_Class_Adjusted"].sum()),
-               "paper_claimed_class_adjusted_scenario": 1200000000,
-               "status": "Original calculation reproduced, but its assumptions do not establish actual savings."}
-    return prices.reset_index(), summary
+    return result, stats

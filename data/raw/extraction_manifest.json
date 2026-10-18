@@ -1,21 +1,12 @@
 [
   {
     "workbook": "(FINAL) FINAL CIS450 MEDICAID (1).xlsx",
-    "sheet": "STATE (OG)",
-    "records": 1048575,
-    "last_populated_row": 1048576,
-    "error_cells": 0,
-    "excel_row_limit_reached": true,
-    "output": "utilization_original.csv.gz"
-  },
-  {
-    "workbook": "(FINAL) FINAL CIS450 MEDICAID (1).xlsx",
     "sheet": "STATE (cleaned ndc)",
     "records": 1048575,
     "last_populated_row": 1048576,
     "error_cells": 0,
     "excel_row_limit_reached": true,
-    "output": "utilization_cleaned_legacy.csv.gz"
+    "output": "utilization.csv.gz"
   },
   {
     "workbook": "(FINAL) FINAL CIS450 MEDICAID (1).xlsx",
@@ -24,24 +15,6 @@
     "last_populated_row": 113879,
     "error_cells": 3,
     "excel_row_limit_reached": false,
-    "output": "ndc_directory.csv.gz"
-  },
-  {
-    "workbook": "(FINAL) FINAL CIS450 MEDICAID (1).xlsx",
-    "sheet": "NDC Directory (FINAL)",
-    "records": 113878,
-    "last_populated_row": 113879,
-    "error_cells": 3,
-    "excel_row_limit_reached": false,
-    "output": "ndc_labels_legacy.csv.gz"
-  },
-  {
-    "workbook": "CIS 450 Q1-Q2  (1).xlsx",
-    "sheet": "INNER JOIN MASTER (No Nulls)",
-    "records": 504630,
-    "last_populated_row": 504631,
-    "error_cells": 0,
-    "excel_row_limit_reached": false,
-    "output": "analysis_legacy.csv.gz"
+    "output": "product_directory.csv.gz"
   }
 ]

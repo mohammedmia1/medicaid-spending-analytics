@@ -71,7 +71,7 @@ def prepare_utilization(raw: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
     frame["price_eligible"] = (frame["spend_eligible"] & frame["units"].gt(0))
     frame["cost_per_unit"] = np.where(frame["price_eligible"],
                                         frame["reimbursement"] / frame["units"].replace(0, np.nan), np.nan)
-    audit = {
+    stats = {
         "source_records": len(frame), "invalid_ndc_records": int((~frame["ndc_valid"]).sum()),
         "suppressed_records": int(frame["suppressed"].sum()),
         "duplicate_grain_records_quarantined": int(duplicate.sum()),
@@ -87,7 +87,7 @@ def prepare_utilization(raw: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
         "observed_states": sorted(frame["state"].dropna().unique().tolist()),
         "years": sorted(frame["year"].dropna().unique().tolist()),
     }
-    return frame, audit
+    return frame, stats
 
 
 def prepare_directory(raw: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, dict]:
@@ -115,11 +115,11 @@ def prepare_directory(raw: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, di
     conflicts = distinct.loc[distinct["product_key"].notna() & distinct.duplicated("product_key", keep=False)].copy()
     conflict_keys = set(conflicts["product_key"])
     directory = distinct.loc[distinct["product_key"].notna() & ~distinct["product_key"].isin(conflict_keys)].copy()
-    audit = {"directory_records": len(raw), "invalid_directory_keys": int(frame["product_key"].isna().sum()),
+    stats = {"directory_records": len(raw), "invalid_directory_keys": int(frame["product_key"].isna().sum()),
              "unique_directory_keys": int(frame["product_key"].nunique()),
              "conflicting_directory_keys": len(conflict_keys), "unambiguous_directory_keys": len(directory),
              "identical_descriptor_duplicates_collapsed": len(frame) - len(distinct)}
-    return directory, conflicts, audit
+    return directory, conflicts, stats
 
 
 def attach_metadata(utilization: pd.DataFrame, directory: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
@@ -129,9 +129,9 @@ def attach_metadata(utilization: pd.DataFrame, directory: pd.DataFrame) -> tuple
     unmatched = merged["_merge"].eq("left_only")
     eligible = merged["spend_eligible"]
     total = merged.loc[eligible, "reimbursement"].sum()
-    audit = {"join_output_records": len(merged), "unmatched_records": int(unmatched.sum()),
+    stats = {"join_output_records": len(merged), "unmatched_records": int(unmatched.sum()),
              "unmatched_spend_eligible_records": int((unmatched & eligible).sum()),
              "unmatched_reimbursement": float(merged.loc[unmatched & eligible, "reimbursement"].sum()),
              "matched_spending_share": float(merged.loc[~unmatched & eligible, "reimbursement"].sum() / total) if total else 0}
     merged["metadata_matched"] = ~unmatched
-    return merged.drop(columns="_merge"), audit
+    return merged.drop(columns="_merge"), stats
