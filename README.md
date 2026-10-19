@@ -125,7 +125,27 @@ The original group code should be used to confirm exactly how the benchmark and 
 
 The paper reports approximately **$900M** at **50%** substitution and **$1.8B** at **100%** substitution. It also reports a **class-adjusted estimate around $1.2B**, using different assumed substitution feasibility across therapeutic categories. Mental-health medications were discussed as potentially more substitutable, while oncology and biologic therapies were treated more cautiously.
 
-**Original visualizations:** the savings ranking and *Substitution Rate vs. Estimated Savings* curve, in the Q3 results pages of the original report.
+**Original visualizations recovered from the Q3 analysis notebook:**
+
+![Top ten drugs — savings by substitution rate](reports/original_figures/q3_brand_generic_price_comparison.png)
+
+*How the top ten candidate drugs contribute to modeled savings at different substitution assumptions.*
+
+![Top ten drugs by modeled Medicaid savings](reports/original_figures/q3_top_savings_opportunities.png)
+
+*Ranking of median-based generic-substitution opportunities.*
+
+![Savings curve by substitution rate](reports/original_figures/q3_substitution_curve.png)
+
+*Modeled aggregate savings over substitution rates from 10% to 100%.*
+
+![Brand versus generic reimbursement per unit](reports/original_figures/q3_additional_chart_a.png)
+
+*Original comparison of unit cost for drugs highlighted in the savings analysis.*
+
+![Additional savings curve](reports/original_figures/q3_additional_chart_b.png)
+
+*Second scenario chart preserved from the source notebook.*
 
 ### Step 5: interpret the concentration of opportunity
 
@@ -141,7 +161,7 @@ Preserving those limitations makes the original project more defensible without 
 
 The group compared brand- and generic-classified drug records across therapeutic categories. The original paper reported a **median cost per unit of $9.97 for brand-classified records versus $0.39 for generic-classified records**, a roughly 25-fold descriptive difference.
 
-**Original visualizations:** *Brand vs. Generic Cost per Unit Comparison* and *Median Cost per Unit by Drug Class* (Q4 results section).
+**Original Q4 visualizations:** The report also contains the brand/generic comparison and therapeutic-class cost table. An original machine-learning output from the Q4–Q5 notebook is preserved in the cost-drivers section below.
 
 The project described substantial apparent price gaps in **Mental Health, Cardiovascular, GI/Acid Suppression, and Pain/Analgesic** categories. In contrast, specialty areas such as **Oncology** and **Immunology/Autoimmune** often showed high costs and more limited alternative-product opportunities.
 
@@ -161,13 +181,21 @@ The paper describes an unsuccessful attempt to use **linear regression** for gen
 
 The paper subsequently describes tree-based methods. Its analytical-techniques section discusses **Random Forest regression predicting log-transformed cost per unit**, while the challenges section also mentions a **gradient boosting decision tree**. These references should be reconciled against the original Q3 and Q4–Q5 notebooks before asserting which specific model generated a published figure.
 
+![Original Random Forest model feature importance](reports/original_figures/q4_cost_driver_model.png)
+
+*Feature-importance visualization preserved from the original Q4–Q5 Colab notebook.*
+
 The original Q4 discussion identified **brand status** as a leading predictor, followed by drug class and ingredient identity, with geography comparatively less important. Feature importance describes a model's use of predictors; it is **not a causal estimate** of what would happen if a policy changed brand status.
 
 ### Regional exploration
 
 The original report found the **West** had the highest total reimbursement, approximately **$9.9B**, and reported differences in average cost per unit among regions. It also discussed high-cost classes appearing across regions, despite different aggregate totals.
 
-**Original visualizations:** regional reimbursement charts and the therapeutic-class-by-region heatmap in the Q5 results section.
+**Original visualizations:** The original regional-spending chart appears in the source paper. The drug-class-by-region heatmap is recovered from the original Q4–Q5 notebook:
+
+![Drug-class spending shares by region](reports/original_figures/q5_region_class_heatmap.png)
+
+*Original regional therapeutic-class distribution chart.*
 
 ### Statistical comparison
 
@@ -224,7 +252,7 @@ The original study used **Excel** for preparation and grouped summaries, **Googl
 
 **Original report:** *CIS 450 Group Project – Final Paper*, December 10, 2025, 21 pages.
 
-**Visuals to embed from the original report:** problem-scoping diagram; Q1 NDC and Q2 drug-class reimbursement charts; Q3 substitution savings and candidate rankings; Q4 brand/generic and therapeutic-class comparisons; Q5 regional spending and heatmap. **These are not interchangeable with the newer charts currently in the repository.**
+**Figure provenance:** The seven charts embedded above are saved outputs from the original [Q3 Colab](https://colab.research.google.com/drive/1w48U1v6JIZbxoOJZU3ti8TxmsvuiY31c?usp=sharing) and [Q4–Q5 Colab](https://colab.research.google.com/drive/18V5_XJtfVE12HbCmp5-Q64lcYiZHd8Ar?usp=sharing) notebooks, stored in `reports/original_figures/`. The source paper's Q1–Q2 charts and some contextual page graphics are not yet separately hosted in this repository; they are not replaced with charts from the newer pipeline.
 
 ---
 
