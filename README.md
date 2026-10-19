@@ -1,156 +1,231 @@
-# Medicaid Prescription Spending Analysis
+# Medicaid Prescription Drug Spending: A Five-Question Healthcare Analytics Study
 
-**Mohammed Mia · Healthcare Data Analytics · Python + SQL**
+**A portfolio presentation of my CIS 450 group final project | Arizona State University | December 2025**
 
-[![Validate analytics](https://github.com/mohammedmia1/medicaid-spending-analytics/actions/workflows/validate.yml/badge.svg?branch=main)](https://github.com/mohammedmia1/medicaid-spending-analytics/actions/workflows/validate.yml)
+**Original collaborators:** Annie Qin, Marcello Borromeo, Dhruv Nair, and Mo Mia. I am presenting our collaborative research in the first person to explain the analytical decisions, results, challenges, and lessons I took from it. I do not claim sole authorship of the group analysis.
 
-**[Follow the analysis notebook](notebooks/Medicaid_Spending_Analysis.ipynb)** · **[Read the executive brief](reports/EXECUTIVE_BRIEF.pdf)** · **[Explore the results](reports/README.md)**
 
-![Overview of the Medicaid prescription spending analysis](reports/figures/portfolio_overview.png)
+## Executive summary
 
-## Why I built this project
+Medicaid prescription spending poses a practical question: can a program identify a relatively small set of drugs, therapeutic classes, and purchasing patterns where closer review might make the biggest difference? Our project explored that question with 2024 Medicaid drug utilization data and drug-product information. We organized the work into five linked research questions: **spending by drug, spending by class, hypothetical savings through generic substitution, potential alternatives, and cost drivers including geography**.
 
-Prescription spending raises two different questions: **where are the dollars going, and where might a closer price review be worthwhile?** An expensive medication can account for substantial spending because of its price, its utilization, or both. A lower-priced product may also exist without being an appropriate substitute for every patient.
+The work combined data preparation, exploratory data analysis, Excel summaries, price-per-unit calculations, scenario modeling, machine-learning experiments, and nonparametric statistical testing. The original paper reported **195,003 usable analytical records** after its cleaning and filtering process. It identified **537 ingredient-name groups with both brand- and generic-classified records** and modeled savings between roughly **$900 million and $1.8 billion**, with a **class-adjusted scenario around $1.2 billion**. Those savings are *model scenarios*, not verified realizable savings. Our regional comparison reported approximately **$9.9 billion** in spending in the West.
 
-I built this project to move from a broad spending picture to a focused set of products for investigation. I combined Medicaid utilization records with FDA product information, used SQL to identify spending concentration, and compared reimbursement per unit for products with matching recorded formulations. My goal was to produce an analysis that a healthcare finance analyst could follow from the source data to a review priority.
+I present the methods and limitations alongside the findings because they are essential to understanding what the analysis can—and cannot—establish.
 
-The included 2024 extract covers **11 states and Washington, DC**, with **$27.54 billion in reported reimbursement before manufacturer rebates**. Every finding below refers to this extract.
+## At a glance
 
-## The five questions that guide the analysis
+| Question | What we investigated | Main analytical approach |
+|---|---|---|
+| **Q1** | Which medications account for the most reimbursement? | NDC-level reimbursement aggregation and rankings |
+| **Q2** | Which therapeutic classes account for the most reimbursement? | Drug-class summaries, pivots, and descriptive comparisons |
+| **Q3** | What could substitution from brand-classified to generic-classified drugs save? | Ingredient grouping, medians, weighted generic prices, substitution-rate scenarios |
+| **Q4** | Where might alternatives exist, and how do costs differ? | Brand/generic comparisons, therapeutic-class exploration, tree-based modeling |
+| **Q5** | What characteristics and geographic patterns relate to unit cost? | Regional aggregations, Random Forest exploration, Kruskal–Wallis testing, heatmap |
 
-| Question | How I answer it |
+## 1. The problem I wanted to understand
+
+Prescription spending is not uniformly distributed. A small number of high-cost medications may account for substantial reimbursement, but high spending alone does not mean a product is overpriced: reimbursement depends on price, utilization, and the mix of patients and therapies. A cost-control proposal also has to distinguish between a cheaper-looking product and a clinically appropriate alternative.
+
+We therefore started with the *structure* of spending before estimating possible savings. That ordering was an important lesson from our scoping discussions. We wanted to identify high-impact categories first, then examine where price differences and available alternatives might justify a closer review. We also explored whether drug category, brand/generic classification, utilization, or geography appeared related to cost per unit.
+
+This was an exploratory academic study, not a clinical formulary recommendation or a validated budget forecast.
+
+## 2. Data sources and preparation
+
+### The two datasets
+
+Our source materials were the **2024 All States Drug Utilization** dataset and the **National Drug Code (NDC) Directory**. The utilization data provided reimbursement and units; the product directory supplied product descriptions and drug attributes. Together, these sources made it possible to connect spending with drug identities and classifications.
+
+| Field or concept | Why it mattered |
 |---|---|
-| **Q1. Which drugs account for the most spending?** | Rank product NDCs and calculate their individual and cumulative spending shares. |
-| **Q2. Which drug classes account for substantial spending?** | Summarize the directory's established pharmacologic class (EPC) tags, keeping overlapping tags visible. |
-| **Q3. Where could lower-priced alternatives merit a savings review?** | Compare unit-weighted reimbursement within matched NDA/ANDA reporting groups and rank positive gross differences. |
-| **Q4. Which products have potentially comparable alternatives?** | Require matching ingredient, strength, dosage form, and route; identify what still needs clinical and unit-level verification. |
-| **Q5. How do geography, reporting period, and product category relate to spending?** | Describe jurisdiction totals, suppression, quarterly changes, and application-category shares. |
+| NDC / product code | Connect utilization records to drug-product descriptions |
+| Medicaid amount reimbursed | Measure total reported spending |
+| Units reimbursed | Compute reimbursement per unit and scale scenarios |
+| Proprietary / nonproprietary names | Explore brand-versus-generic classifications and ingredient grouping |
+| Pharmacologic class / assigned drug class | Group medications into interpretable therapeutic categories |
+| State and derived region | Compare geography and spending distributions |
 
-I approach these questions in sequence: establish where spending concentrates, understand the product categories involved, examine price differences, and then interpret the results in their reporting context. Q4 identifies recorded matches rather than confirming therapeutic equivalence. Q5 describes patterns rather than estimating causal cost drivers.
+### NDC standardization
 
-## From source records to an analytical dataset
+A major practical challenge was that NDC identifiers were represented differently across the datasets. The original paper describes standardizing labeler and product segments to a common **nine-digit labeler/product key**, including leading zeros. This was necessary to reduce mismatches caused by formatting rather than by genuinely missing drug information.
 
-The utilization file tells me how much was reimbursed and how many units were reported. The product directory adds the ingredient, strength, dosage form, route, and application category needed to interpret those amounts.
+The paper also describes cleaning missing values, standardizing categories, deriving **cost per unit = Medicaid amount reimbursed ÷ units reimbursed**, and assigning regions from states. It describes a brand/generic *heuristic* based on whether proprietary and nonproprietary names matched, and an AI-assisted classification of therapeutic classes from pharmacologic text.
 
-| Source | Records | Contribution |
-|---|---:|---|
-| Medicaid utilization extract | 1,048,575 | Jurisdiction, quarter, package NDC, utilization, reimbursement, and suppression |
-| FDA product directory extract | 113,878 | Product descriptions, pharmacologic tags, application categories, and marketing dates |
+These steps deserve documentation because they affect the interpretation of all downstream results. A name-based brand/generic label is not a regulatory determination, and an AI-assisted therapeutic category requires validation.
 
-Before comparing prices, I had to resolve three practical issues. First, NDCs have different formats across the two sources. I preserved leading zeros and standardized the labeler/product segments to a nine-character product key. Second, a directory key can appear more than once. I collapsed identical analytical descriptions and left conflicting keys unmatched so they could not multiply reimbursement. Third, suppressed amounts are unknown. I kept them missing and retained their records in coverage reporting.
+### The original merge code: a left join
 
-This produced **504,630 records with reported reimbursement** and **543,945 records with suppressed amounts**. My left join preserved the utilization record count and spending total. Unambiguous product information covers **99.42% of reported dollars**, while unmatched spending remains in the overall denominator.
+The supplied [group Colab merge notebook](https://colab.research.google.com/drive/1nVJM00DSUrFDWJn6T2iPNSagcFOv9A3w?usp=sharing) reads two **prepared Excel workbooks** and uses a **left join on `NDC Code`**, retaining utilization rows while adding matching product information. It exports the result as `merged_output.csv`.
 
-The [data guide](data/README.md) describes the fields and coverage. The [methodology](docs/METHODOLOGY.md) explains each preparation decision and calculation.
+This is the join performed in the actual supplied notebook. The final paper also mentions an inner join when describing the broader preparation process; the two descriptions should not be treated as identical. I use **left join** when documenting this notebook, and I do not pretend the notebook contains earlier cleaning code that it does not show.
 
-## Q1. I started with the products behind the spending
+The final paper reports **195,003 usable records** after cleaning and excluding the ambiguous “Other” class. That is the original group's reported analysis population; its exact reconstruction remains dependent on the other original project files.
 
-I aggregated reimbursement by product NDC, ranked the totals, and used SQL window functions to calculate spending shares. This distinguishes a product's dollar contribution from its price per unit: a high unit price alone does not tell me how much it contributes to the budget.
+## 3. Analytical design: five questions, one progression
 
-![Top ten product NDCs by reported reimbursement](reports/figures/top_products.png)
+Our workflow was intentionally sequential. First, we ranked reimbursement by drug and class. Next, we narrowed the analysis to ingredient groups where both brand- and generic-classified records appeared. We then estimated possible substitution savings under multiple assumptions. Finally, we explored broader price differences, modeling, and geographic variation.
 
-**Biktarvy product NDC 619582501 leads the ranking at $907.89M.** The top 10 product NDCs account for **16.4%** of reported reimbursement, and the top 50 account for **37.1%**.
+The original report includes a **problem-scoping and methodological hierarchy** diagram. That figure belongs here because it explains why we did not begin with a predictive model before understanding the spending distribution.
 
-![Cumulative reimbursement share for the highest-spending product NDCs](reports/figures/spending_concentration.png)
+### Why exploratory analysis came first
 
-My takeaway is a practical review sequence: begin with the products that account for a large share of dollars, then investigate their utilization and prices. A product NDC combines package sizes; different strengths of the same brand can remain separate. I therefore interpret this as a product-level ranking, rather than a ranking of all spending under each brand name.
+The distributions were highly skewed: a few high-cost products could dominate averages. We used medians, rankings, and grouped comparisons to make the results interpretable. We also used weighted generic prices where a utilization-aware estimate was more relevant than treating every record equally.
 
-## Q2. I then looked at the pharmacologic categories
+This exploratory work is not a preliminary step to discard; it is a central part of the project.
 
-Product rankings identify individual review targets. Pharmacologic tags help me see the broader categories represented among those dollars. I used the FDA directory's recorded EPC tags and counted each distinct tag once per utilization record.
+## 4. Q1 — Which medications accounted for the most spending?
 
-![Reported reimbursement associated with the leading recorded EPC tags](reports/figures/pharmacologic_classes.png)
+We aggregated Medicaid reimbursement at the NDC level and ranked the products. In the original report, **Biktarvy, Humira, and Ozempic (semaglutide) NDCs** were prominent among the highest-spending records. This result suggested that a relatively small group of medications could be a useful starting point for targeted spending review.
 
-Products carrying the **GLP-1 Receptor Agonist** tag account for **$2.94B** in reported reimbursement. Other prominent tags include HIV-related reverse transcriptase inhibitors, atypical antipsychotics, and SGLT2 inhibitors.
+**Original visualization:** *Medicaid Reimbursements ($) by NDC* (original paper, results section, page 12 of the PDF).
 
-These categories give context to the product-level findings, but a combination drug can carry several tags. **I do not add tag totals together or present them as slices of a mutually exclusive budget.** Another $5.19B has no recorded EPC tag or unmatched metadata; those dollars remain in overall spending.
+### Interpretation
 
-## Q3. I translated observed price differences into review priorities
+A high reimbursement total can arise from a high unit price, high utilization, or both. It should not automatically be interpreted as evidence of inefficiency. We used the ranking to identify **where to investigate**, not to declare that the highest-spending drugs should be restricted.
 
-The next question was whether products with similar recorded formulations had materially different reimbursement per unit. I required the same ingredient, strength and strength unit, dosage form, and route. I also matched jurisdiction, quarter, and managed-care or fee-for-service utilization type, and checked marketing-date overlap.
+Another important distinction is that an NDC is not the same as an ingredient-level or brand-level total. Multiple strengths or product presentations can appear separately. The ranking therefore describes the granularity of the data used.
 
-Within each matched reporting group, I used the directory's **NDA and ANDA application categories** to form the comparison. These categories help organize the analysis, but they are not a complete brand/generic classification.
+## 5. Q2 — Which therapeutic classes accounted for the most spending?
 
-I calculated the price on each side as:
+We grouped reimbursement by the project's therapeutic-class labels. The original report identified **Antidiabetic** and **Immunology/Autoimmune** drugs as major categories, together accounting for approximately **32%** of spending in the analyzed dataset.
+
+**Original visualization:** *Medicaid Reimbursements ($) by Drug Class* (original paper, page 12).
+
+### Interpretation
+
+Class-level totals complement NDC rankings: they show whether high spending is concentrated around broader treatment areas rather than a single product. Chronic therapies can create substantial recurring expenditure because patients may need ongoing treatment.
+
+The original class labels were created partly through an AI-assisted classification process and later filtered to remove “Other.” That choice improved interpretability but also changed coverage. I would not describe the class totals as independently validated without checking the underlying classifications.
+
+## 6. Q3 — Where might generic substitution reduce spending?
+
+This was one of the most involved parts of the original project. We wanted to move beyond the statement that generics are often less expensive and estimate how the observed price differences might translate into dollars at reported utilization.
+
+### Step 1: identify candidate ingredient groups
+
+We grouped records by **nonproprietary name** and retained groups that contained both brand- and generic-classified records. The original report identified **537 such groups**. These were *exploratory substitution candidates*, not 537 clinically verified interchangeable drug pairs.
+
+### Step 2: compare prices while addressing outliers
+
+For each group, we compared **median brand reimbursement per unit** with **median generic reimbursement per unit**. Because extreme prices can distort means, the median was an important descriptive choice. We also computed a **utilization-weighted generic reimbursement per unit**, which gives more influence to records with greater observed utilization.
+
+### Step 3: scale price differences by brand utilization
+
+The original scenario used a per-unit price difference multiplied by brand units to estimate the magnitude of potential savings. The conceptual calculation was:
 
 ```text
-Unit-weighted reimbursement = total reimbursement ÷ total units
-Signed gross gap = (NDA unit price − ANDA unit price) × NDA units
-Positive gross gap = max(signed gross gap, 0)
+Estimated unit gap = brand unit-price benchmark - generic unit-price benchmark
+Modeled gross savings = estimated unit gap × eligible brand units × assumed substitution rate
 ```
 
-I chose this weighting because the question concerns observed dollars at observed utilization. A small record with an unusual price should not receive the same influence as a record representing many units. The comparison uses observed prices directly; it does not require predicting an unobserved price.
+The original group code should be used to confirm exactly how the benchmark and any negative differences were handled. This formula explains the *concept* rather than claiming to reproduce every original implementation detail.
 
-![Matched formulations ranked by positive gross reimbursement gap](reports/figures/formulation_gaps.png)
+### Step 4: test substitution assumptions
 
-I identified **562 recorded formulations across 6,675 matched reporting groups**. Positive differences sum to **$516.16M**; retaining negative differences produces a **$506.73M signed aggregate**. Reporting both makes the direction of the comparisons visible.
+The paper reports approximately **$900M** at **50%** substitution and **$1.8B** at **100%** substitution. It also reports a **class-adjusted estimate around $1.2B**, using different assumed substitution feasibility across therapeutic categories. Mental-health medications were discussed as potentially more substitutable, while oncology and biologic therapies were treated more cautiously.
 
-| Example formulation | Positive gross gap |
-|---|---:|
-| Cyclosporine, ophthalmic emulsion, 0.5 mg/mL | $44.50M |
-| Lisdexamfetamine dimesylate, oral capsule, 30 mg | $22.83M |
-| Methylphenidate hydrochloride, oral extended-release tablet, 36 mg | $22.34M |
+**Original visualizations:** the savings ranking and *Substitution Rate vs. Estimated Savings* curve, in the Q3 results pages of the original report.
 
-**I interpret these amounts as a price-review screen.** They identify where observed differences deserve investigation. They do not establish achievable savings: reimbursement unit types, manufacturer rebates, availability, and clinical substitution requirements still need verification.
+### Step 5: interpret the concentration of opportunity
 
-## Q4. I separated a recorded match from a usable alternative
+The original report highlighted **aripiprazole, lisdexamfetamine dimesylate, risperidone, budesonide, and albuterol sulfate** among contributors to modeled savings. The business implication was that reviewing a smaller set of high-volume brand-classified drugs could be more productive than treating every medication as an equal target.
 
-A shared ingredient name is only the beginning of an alternative-product review. Strength, route, and release form matter, which is why I retained those descriptors in the matching rules.
+### What the savings numbers do—and do not—mean
 
-For example, the cyclosporine result refers specifically to **0.5 mg/mL ophthalmic emulsion**. It is not a recommendation to substitute any product containing cyclosporine. Even an exact recorded formulation match does not establish therapeutic equivalence, identical reimbursement units, or suitability for a particular patient.
+These estimates are **gross hypothetical scenarios**. They do not establish that every ingredient-name match is therapeutically equivalent, that reimbursement units are directly comparable, that substitution is clinically appropriate, or that manufacturer rebates and actual net prices would preserve the modeled difference. The class-adjusted estimate is an *assumption-based scenario*, not an observed annual saving or a validated forecast.
 
-My output for this question is a [formulation-level review list](reports/tables/formulation_gap_ranking.csv), supported by [reporting-group detail](reports/tables/formulation_strata_gaps.csv.gz). Before treating a candidate as actionable, I would verify the unit basis, applicable therapeutic-equivalence evidence, practical availability, and net rebate economics.
+Preserving those limitations makes the original project more defensible without replacing its analytical question.
 
-## Q5. I put the findings in geographic and reporting context
+## 7. Q4 — Which drugs might have comparable alternatives?
 
-I compared jurisdiction totals alongside the share of records with suppressed amounts. **California accounts for 56.5% of observed reimbursement**, but that does not establish higher prices or lower efficiency. Enrollment, utilization, drug mix, and reporting completeness can all affect absolute spending.
+The group compared brand- and generic-classified drug records across therapeutic categories. The original paper reported a **median cost per unit of $9.97 for brand-classified records versus $0.39 for generic-classified records**, a roughly 25-fold descriptive difference.
 
-![Jurisdiction reimbursement alongside suppressed record shares](reports/figures/jurisdiction_coverage.png)
+**Original visualizations:** *Brand vs. Generic Cost per Unit Comparison* and *Median Cost per Unit by Drug Class* (Q4 results section).
 
-I also examined quarterly totals and application categories. Q3 has the highest reported reimbursement at **$7.63B**. NDA-listed products account for **58.1%** of spending, BLA-listed products for **28.8%**, and ANDA-listed products for **10.3%**.
+The project described substantial apparent price gaps in **Mental Health, Cardiovascular, GI/Acid Suppression, and Pain/Analgesic** categories. In contrast, specialty areas such as **Oncology** and **Immunology/Autoimmune** often showed high costs and more limited alternative-product opportunities.
 
-![Quarterly reimbursement and spending by recorded application category](reports/figures/spending_context.png)
+### Why the median comparison is informative but not sufficient
 
-These patterns describe where and when spending appears in the extract. I do not treat them as evidence that geography or an application category causes a particular price. Suppression affects what is observable, and its record share does not reveal the amount of dollars missing.
+The $9.97 and $0.39 figures compare distributions of records labeled brand and generic. They are **not** a matched-pair estimate showing that replacing any particular drug will produce a 25-fold price reduction. Differences in formulation, route, strength, units, and drug mix can affect the comparison.
 
-## What I would do with the results
+The original study used these results to motivate closer review of non-specialty categories. Actual therapeutic equivalence would need to be established separately.
 
-I would begin a spending review with the concentrated high-dollar product set, use the pharmacologic tags to organize that review, and investigate the matched formulation gaps where the dollar exposure is substantial. I would validate comparability and net economics before considering any intervention.
+## 8. Q5 — What characteristics and regional patterns were associated with cost?
 
-The central finding is that **a focused product review is a useful starting point**. The project provides the rankings, matching rules, and reporting context needed to choose that starting point responsibly.
+The project explored whether price differences were associated with **brand status, drug class, ingredient identity, utilization, and region**. It also examined spending totals and cost-per-unit distributions across geographic groups.
 
-## Tools and reproducibility
+### Modeling experiments
 
-I used **Python and pandas** for preparation and matching, **SQLite and SQL** for spending analysis, **matplotlib** for the visualizations, and **GitHub Actions** for automated validation. The repository includes source CSVs, executed notebook outputs, SQL queries, and generated result tables.
+The paper describes an unsuccessful attempt to use **linear regression** for generic cost estimation. Skewed prices and correlated predictors produced implausible outputs, including negative aggregate savings. Rather than conceal that result, I include it as an analytical lesson: a model can produce numerical predictions while failing a basic plausibility check.
 
-Requires Python 3.11 or newer; no credentials or database server are needed.
+The paper subsequently describes tree-based methods. Its analytical-techniques section discusses **Random Forest regression predicting log-transformed cost per unit**, while the challenges section also mentions a **gradient boosting decision tree**. These references should be reconciled against the original Q3 and Q4–Q5 notebooks before asserting which specific model generated a published figure.
 
-```bash
-pip install -r requirements.txt
-pip install -e . --no-deps
+The original Q4 discussion identified **brand status** as a leading predictor, followed by drug class and ingredient identity, with geography comparatively less important. Feature importance describes a model's use of predictors; it is **not a causal estimate** of what would happen if a policy changed brand status.
 
-python -m medicaid_analytics.pipeline
-python -m unittest discover -s tests -v
-python -m medicaid_analytics.verify
-python scripts/build_notebook.py
-```
+### Regional exploration
 
-The pipeline produces a local SQLite database, [result tables](reports/tables/), seven figures, and an [analysis summary](reports/analysis_summary.json). Allow about 750 MB of free disk space and at least 2 GB of available memory when running both the pipeline and notebook. To regenerate the PDF separately, install `reportlab` and run `python scripts/build_brief.py`.
+The original report found the **West** had the highest total reimbursement, approximately **$9.9B**, and reported differences in average cost per unit among regions. It also discussed high-cost classes appearing across regions, despite different aggregate totals.
 
-The notebook starts from the included source CSVs and shows preparation, inline SQL, matching, weighted prices, and chart code in sequence. It can run without first running the pipeline. Its final cells compare all nine result tables with the published outputs. GitHub Actions repeats this comparison against freshly generated pipeline results. The batch pipeline remains available for automated processing; the notebook provides the same analysis as a readable walkthrough.
+**Original visualizations:** regional reimbursement charts and the therapeutic-class-by-region heatmap in the Q5 results section.
 
-| Explore | Contents |
-|---|---|
-| [Analysis notebook](notebooks/Medicaid_Spending_Analysis.ipynb) | Executed code, visualizations, and interpretation across the five questions |
-| [Methodology](docs/METHODOLOGY.md) | Eligibility, joins, weighting, matching, and analytical boundaries |
-| [Data guide](data/README.md) | Source files, fields, and coverage |
-| [Results guide](reports/README.md) | Tables and figures organized by question |
-| [SQL](sql/) | Product, jurisdiction, quarterly, and application-category queries |
+### Statistical comparison
 
-## Scope and sources
+The group used the **Kruskal–Wallis test** to evaluate whether regional cost-per-unit distributions differed. The paper reports a statistically significant result. Statistical significance indicates evidence of distributional differences under the test; it does not demonstrate that geography itself caused the differences or establish their practical magnitude.
 
-The extract covers 11 states and DC and reaches the source worksheet's row limit; complete national or within-jurisdiction coverage is not established. Suppressed dollars are unknown. The directory is not a historical 2024 snapshot, its application categories do not fully define brand/generic status, and its descriptors do not certify therapeutic equivalence. Reported reimbursement is before manufacturer rebates.
+Likewise, a region's higher total spending does not imply higher unit prices without accounting for enrollment, utilization, and case mix.
 
-Sources: [CMS 2024 State Drug Utilization Data](https://data.medicaid.gov/dataset/61729e5a-7aa8-448c-8903-ba3e0cd0ea3c), [FDA NDC Directory](https://www.fda.gov/drugs/drug-approvals-and-databases/national-drug-code-directory), and [CMS reporting definitions](https://www.medicaid.gov/medicaid/prescription-drugs/state-drug-utilization-data/state-drug-utilization-data-faq).
+## 9. Challenges, decisions, and what I learned
 
-Academic collaborators: Annie Qin, Marcello Borromeo, Dhruv Nair, and Mo Mia (Mohammed Mia), ASU CIS 450.
+### Joining messy healthcare data
+
+Inconsistent NDC formatting made it difficult to connect utilization with drug descriptions. The project required deliberate handling of leading zeros, labeler/product segments, naming differences, and missing matches. This is the kind of problem that can invalidate an analysis before any model is fitted.
+
+### Interpreting drug names and classifications
+
+A shared ingredient name does not guarantee identical formulation or interchangeability. The brand/generic naming heuristic and AI-assisted class labels helped organize the exploratory work, but both should be treated as approximations.
+
+### Handling skew and implausible predictions
+
+Extreme prices motivated median comparisons. The unsuccessful linear regression attempt also showed why predictions must be checked against domain and arithmetic constraints, rather than accepted solely because a model runs.
+
+### Separating total spending from unit price
+
+Total reimbursement, median reimbursement per unit, and hypothetical substitution savings answer different questions. A high-spending medication may have high utilization; a high-price medication may contribute little to the overall budget if rarely used.
+
+### Keeping assumptions visible
+
+The difference between the full-substitution and class-adjusted savings scenarios shows how strongly results can depend on assumptions. I would present the range and the assumptions together, rather than a single savings number without context.
+
+## 10. Discussion and implications
+
+Taken together, the original findings suggested a targeted review strategy. Start with the highest-spending NDCs and therapeutic classes. Within those areas, identify candidate ingredient groups with observed brand/generic price differences. Prioritize potential savings by the scale of brand utilization, then investigate formulation, clinical equivalence, coverage, availability, and net economics before recommending a policy change.
+
+The regional findings suggested that expensive chronic-disease categories appeared across multiple regions. However, the evidence does not justify treating all jurisdictions as equivalent or interpreting geographic differences as causal effects.
+
+The practical value of the study is its **structured prioritization process**. It converts a broad budget question into a sequence of measurable exploratory questions and makes assumptions explicit.
+
+## 11. Limitations and scope
+
+- **Collaborative work:** the source research and figures were produced by a four-person team; this README is my portfolio explanation of that shared project.
+- **Source coverage:** the original paper uses broad “national” wording, but the actual extract's completeness must be verified before claiming representative nationwide coverage.
+- **Join reproducibility:** the provided merge Colab shows a **left join on prepared files**; it does not show every earlier cleaning or classification step.
+- **Classification uncertainty:** name comparisons and AI-assisted therapeutic class assignments can misclassify records.
+- **Unit comparability:** reimbursement per unit can be misleading when unit definitions differ.
+- **Savings assumptions:** substitution rates, clinical feasibility, and rebate-adjusted prices were not independently validated in the scenario.
+- **Model attribution:** the exact Random Forest versus gradient boosting outputs require original notebook verification.
+- **Causality:** predictive feature importance and regional significance tests do not establish causal cost drivers.
+
+## 12. Tools and original project materials
+
+The original study used **Excel** for preparation and grouped summaries, **Google Colab/Python** for analysis, and statistical and machine-learning techniques including medians, weighted averages, regression experiments, Random Forest exploration, and the Kruskal–Wallis test. The original paper links to separate Q1–Q2 Excel, Q3 Colab, and Q4–Q5 Colab files, which should be preserved alongside the data merge.
+
+**Verified merge notebook:** [medicaid_data_merge.ipynb on Google Colab](https://colab.research.google.com/drive/1nVJM00DSUrFDWJn6T2iPNSagcFOv9A3w?usp=sharing)
+
+**Original report:** *CIS 450 Group Project – Final Paper*, December 10, 2025, 21 pages.
+
+**Visuals to embed from the original report:** problem-scoping diagram; Q1 NDC and Q2 drug-class reimbursement charts; Q3 substitution savings and candidate rankings; Q4 brand/generic and therapeutic-class comparisons; Q5 regional spending and heatmap. **These are not interchangeable with the newer charts currently in the repository.**
+
+---
+
+*Original collaborative research: Annie Qin, Marcello Borromeo, Dhruv Nair, and Mo Mia. First-person portfolio adaptation by Mo Mia. Reported values above come from the original group paper; analytical caveats and reconstruction status are made explicit.*
